@@ -777,7 +777,7 @@ export function drawPlatform(ctx, biome, w, h, t) {
       ctx.lineTo(i, top + h + 6);
       ctx.stroke();
     }
-  } else if (biome === 'bridge') {
+  } else if (biome === 'lagoon') {
     for (let i = x; i < w / 2 - 10; i += 46) {
       rrect(ctx, i + 2, top, 42, h + 2, 4);
       fillStroke(ctx, ['#c8904a', '#b27a38', '#d19a54'][((i - x) / 46) | 0 % 3 ? 0 : 1], 3.5);
@@ -830,4 +830,195 @@ export function drawPlatform(ctx, biome, w, h, t) {
       ctx.stroke();
     }
   }
+}
+
+// Rukk's face (HUD portrait): same design as the in-game head
+export function drawHeroFace(ctx) {
+  const FUR = '#e2782a', FUR_D = '#b85516', BELLY = '#ffd9a0';
+  const ear = (x, y, ang, sc) => {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(ang);
+    ctx.scale(sc, sc);
+    ctx.beginPath();
+    ctx.moveTo(-13, 0);
+    ctx.quadraticCurveTo(-18, -50, 2, -66);
+    ctx.quadraticCurveTo(18, -46, 13, 0);
+    ctx.closePath();
+    fillStroke(ctx, FUR, 4.5);
+    ctx.beginPath();
+    ctx.moveTo(-6, -4);
+    ctx.quadraticCurveTo(-8, -38, 2, -52);
+    ctx.quadraticCurveTo(9, -36, 6, -4);
+    ctx.closePath();
+    ctx.fillStyle = '#ff9aa6';
+    ctx.fill();
+    ctx.restore();
+  };
+  ctx.save();
+  ctx.translate(-6, 8);
+  ear(-14, -22, -0.45, 1);
+  ctx.beginPath();
+  ctx.arc(0, 0, 31, 0, 7);
+  fillStroke(ctx, FUR, 4.5);
+  ctx.beginPath();
+  ctx.ellipse(31, 8, 25, 15, 0.12, 0, 7);
+  fillStroke(ctx, FUR, 4.5);
+  ctx.beginPath();
+  ctx.ellipse(32, 15, 20, 8, 0.1, 0, 7);
+  fillStroke(ctx, BELLY, 3);
+  ctx.beginPath();
+  ctx.ellipse(54, 3, 8, 7, 0, 0, 7);
+  ctx.fillStyle = '#2a1410';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(36, 12, 13, 0.1, 2.0);
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = OUT;
+  ctx.stroke();
+  for (const [ex, ey, rx, ry] of [[-3, -8, 11, 15], [17, -8, 14, 18]]) {
+    ctx.beginPath();
+    ctx.ellipse(ex, ey, rx, ry, 0, 0, 7);
+    fillStroke(ctx, '#fff', 4);
+    ctx.beginPath();
+    ctx.ellipse(ex + 3, ey + 1, rx * 0.55, ry * 0.62, 0, 0, 7);
+    ctx.fillStyle = '#2a72e8';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(ex + 4.5, ey + 1, rx * 0.3, ry * 0.4, 0, 0, 7);
+    ctx.fillStyle = '#101010';
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.moveTo(6, -30);
+  ctx.lineTo(30, -24);
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = FUR_D;
+  ctx.stroke();
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-2 + i * 8, -28);
+    ctx.lineTo(i * 10 + 6, -46 - (i === 0 ? 5 : 0));
+    ctx.lineTo(8 + i * 8, -28);
+    fillStroke(ctx, FUR_D, 3);
+  }
+  ear(4, -26, 0.2, 1.1);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- boss
+export function drawCoconut(ctx, r, rot, t, hot = false) {
+  ctx.save();
+  ctx.translate(0, -r);
+  ctx.save();
+  ctx.rotate(rot);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, 7);
+  fillStroke(ctx, hot ? '#e8a04a' : '#8a5a32', 4.5);
+  ctx.strokeStyle = 'rgba(40,20,8,0.55)';
+  ctx.lineWidth = 3;
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.35 * (i % 2 ? 1 : 0.2) + 4, r * 0.95, (i * Math.PI) / 4, 0, 7);
+    ctx.stroke();
+  }
+  ctx.restore();
+  // angry eyes + fuse
+  for (const s2 of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(s2 * r * 0.32, -r * 0.05, r * 0.2, r * 0.24, 0, 0, 7);
+    fillStroke(ctx, '#fff', 3);
+    ctx.beginPath();
+    ctx.arc(s2 * r * 0.32 - 2, 0, r * 0.08, 0, 7);
+    ctx.fillStyle = '#111';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(s2 * r * 0.58, -r * 0.4);
+    ctx.lineTo(s2 * r * 0.1, -r * 0.22);
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = OUT;
+    ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(0, -r);
+  ctx.quadraticCurveTo(r * 0.3, -r * 1.4, r * 0.1, -r * 1.55);
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = OUT;
+  ctx.stroke();
+  ctx.save();
+  ctx.translate(r * 0.12, -r * 1.58);
+  ctx.rotate(t * 9);
+  star(ctx, 9 + Math.sin(t * 30) * 3, 4, 0.4);
+  ctx.fillStyle = hot ? '#7cff5a' : '#ffd23a';
+  ctx.fill();
+  ctx.restore();
+  ctx.restore();
+}
+
+// KING SCUTTLER: a huge crowned beetle. o = {state, flash, t}
+export function drawBossBeetle(ctx, t, o) {
+  ctx.save();
+  const stunned = o.state === 'stun';
+  const windup = o.state === 'windup';
+  const bob = Math.sin(t * 6) * (stunned ? 0 : 3);
+  ctx.translate(0, bob);
+  if (o.flash > 0 && Math.sin(o.flash * 60) > 0) ctx.globalAlpha = 0.55;
+  drawScuttler(ctx, 150, 106, stunned ? 0 : t * 0.5, -1);
+  // crown
+  ctx.save();
+  ctx.translate(-4, -110);
+  ctx.beginPath();
+  ctx.moveTo(-34, 0);
+  ctx.lineTo(-34, -30);
+  ctx.lineTo(-17, -14);
+  ctx.lineTo(0, -38);
+  ctx.lineTo(17, -14);
+  ctx.lineTo(34, -30);
+  ctx.lineTo(34, 0);
+  ctx.closePath();
+  fillStroke(ctx, '#ffcf2a', 4.5);
+  for (const [gx, col] of [[-20, '#2fd8c8'], [0, '#ff4a6a'], [20, '#2fd8c8']]) {
+    ctx.beginPath();
+    ctx.arc(gx, -9, 6, 0, 7);
+    fillStroke(ctx, col, 2.5);
+  }
+  ctx.restore();
+  // little arms; raised with a coconut during wind-up
+  const arm = (sx2, raised) => {
+    ctx.save();
+    ctx.translate(sx2, -62);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(raised ? -10 : -26, raised ? -58 : 8);
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 17;
+    ctx.strokeStyle = OUT;
+    ctx.stroke();
+    ctx.lineWidth = 9;
+    ctx.strokeStyle = '#7a2a1a';
+    ctx.stroke();
+    ctx.restore();
+  };
+  arm(-62, windup);
+  arm(-20, windup);
+  if (windup) {
+    ctx.save();
+    ctx.translate(-48, -150);
+    const sc = 0.7 + Math.min(1, o.t * 1.5) * 0.3;
+    ctx.scale(sc, sc);
+    drawCoconut(ctx, 36, t * 2, t, true);
+    ctx.restore();
+  }
+  if (stunned) {
+    for (let i = 0; i < 4; i++) {
+      const a = t * 7 + (i * Math.PI) / 2;
+      ctx.save();
+      ctx.translate(-52 + Math.cos(a) * 60, -148 + Math.sin(a) * 14);
+      ctx.rotate(t * 6);
+      star(ctx, 11, 5, 0.5);
+      fillStroke(ctx, '#ffd23a', 2.5);
+      ctx.restore();
+    }
+  }
+  ctx.restore();
 }

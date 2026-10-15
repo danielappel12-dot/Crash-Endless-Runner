@@ -34,6 +34,7 @@ export const HAZ = {
   barricade: { w: 106, h: 104, y0: 0, platform: false },
   branch: { w: 150, h: 520, y0: 104, platform: false },
   boulder: { w: 116, h: 116, y0: 0, platform: false },
+  coconut: { w: 76, h: 76, y0: 0, platform: false }, // boss projectile
 };
 
 export const ENEMY = {
@@ -62,6 +63,8 @@ export class World {
     this.items.clear();
     this.gaps.clear();
     this.nextX = 1100;
+    this.frozen = false; // true while a boss fight owns the arena
+    this.cratesTotal = 0;
     this.lastKind = '';
     this.boulderCooldown = 0;
     this.safe = 1;
@@ -73,7 +76,7 @@ export class World {
     const s = HAZ[kind];
     const h = this.hazards.acquire();
     h.kind = kind; h.x = x; h.lane = lane; h.w = s.w; h.h = s.h; h.y0 = s.y0; h.platform = s.platform;
-    h.passed = false; h.state = 'idle'; h.rolled = 0; h.warn = 0;
+    h.passed = false; h.state = 'idle'; h.rolled = 0; h.warn = 0; h.deflected = false;
     return h;
   }
 
@@ -82,6 +85,7 @@ export class World {
     c.kind = kind; c.x = x; c.lane = lane; c.y0 = y0; c.w = c.h = CONFIG.crates.size;
     c.platform = kind === 'metal'; c.armed = false; c.fuse = CONFIG.crates.tntFuse; c.flash = 0;
     c.squash = 0; c.passed = false; c.tick = 0;
+    if (kind !== 'metal' && kind !== 'tnt') this.cratesTotal++;
     return c;
   }
 
@@ -104,6 +108,14 @@ export class World {
   platform(x, lane, top, w) {
     const pl = this.platforms.acquire();
     pl.x = x; pl.lane = lane; pl.w = w; pl.h = 26; pl.top = top; pl.y0 = top - 26;
+    pl.base = top; pl.amp = 0; pl.spd = 0; pl.t = Math.random() * 6;
+    return pl;
+  }
+
+  // bobbing elevator platform
+  elevator(x, lane, base, w, amp = 55, spd = 1.9) {
+    const pl = this.platform(x, lane, base, w);
+    pl.amp = amp; pl.spd = spd;
     return pl;
   }
 
@@ -145,6 +157,7 @@ export class World {
   }
 
   ensure(camX, speedMps, distance) {
+    if (this.frozen) return;
     const diff = clamp(distance / CONFIG.speed.distanceToMax, 0, 1);
     const level = distance / CONFIG.speed.levelEvery + 1;
     const spx = speedMps * V.pxPerM;
@@ -163,11 +176,13 @@ export class World {
         gap: hazardsOn ? 1.2 + 2 * diff : 0,
         stones: distance > 150 ? 0.9 + 1.8 * diff : 0,
         highRoad: distance > 60 ? 1.8 : 0,
+        stack: distance > 80 ? 2.2 : 0,
+        elevator: distance > 200 ? 1.2 + 1.2 * diff : 0,
         branch: hazardsOn ? 1.6 + 1.5 * diff : 0,
         boulder: hazardsOn && level >= CONFIG.difficulty.boulderFromLevel && this.boulderCooldown <= 0 ? 1.2 + 1.5 * diff : 0,
       };
       if (this.lastKind === 'hazard') {
-        table.single = table.double = table.gap = table.branch = table.boulder = table.bounce = table.stones = 0;
+        table.single = table.double = table.gap = table.branch = table.boulder = table.bounce = table.stones = table.elevator = 0;
       }
       const kind = weighted(table);
       this.boulderCooldown -= 1;
@@ -181,6 +196,8 @@ export class World {
         case 'gap': w = this.pGap(start, spx, diff, distance); hazardous = true; break;
         case 'stones': w = this.pStones(start, spx, diff, distance); hazardous = true; break;
         case 'highRoad': w = this.pHighRoad(start, spx, diff, distance); break;
+        case 'stack': w = this.pStack(start, spx, diff, distance); break;
+        case 'elevator': w = this.pElevator(start, spx, diff, distance); hazardous = true; break;
         case 'branch': w = this.pBranch(start, spx, diff, distance); hazardous = true; break;
         case 'boulder': w = this.pBoulder(start, spx, diff); hazardous = true; this.boulderCooldown = 4; break;
       }
@@ -354,6 +371,43 @@ export class World {
     return 420 + 125 + 70 + 380 + 190;
   }
 
+  // towers of crates: jump on the top one to break it and bounce, or smash through from the side
+  pStack(x, spx, diff, distance) {
+    const lane = pick([0, 1, 2]);
+    const sx = x + 340;
+    const n = 2 + (chance(0.5 + 0.3 * diff) ? 1 : 0);
+    const size = CONFIG.crates.size;
+    const metalBase = diff > 0.15 && chance(0.28);
+    for (let i = 0; i < n; i++) {
+      let kind = i === 0 && metalBase ? 'metal' : weighted({ fruit: 5, mystery: 2 });
+      if (i === n - 1 && !metalBase && chance(0.25)) kind = 'bouncy';
+      this.crate(kind, sx, lane, i * size);
+    }
+    for (let i = 0; i < 3; i++) this.fruit(sx - 260 + i * 70, 64, lane);
+    this.arcAt(sx - 120, 240, n * size + 60, n * size + 170, 5, lane);
+    if (distance > 100 && chance(0.25 + 0.2 * diff)) this.item(weighted({ green: 55, purple: 30, blue: 15 }), sx + 140, n * size + 60, lane);
+    const o = this.nextSafe(diff);
+    for (let i = 0; i < 4; i++) this.fruit(sx - 200 + i * 110, 64, o);
+    return 340 + 280;
+  }
+
+  // jumpable pit with optional bobbing elevator platforms above it (reward route)
+  pElevator(x, spx, diff, distance) {
+    const sp = clamp((spx / V.pxPerM - 15) / 19, 0, 1);
+    const width = 190 + sp * 120;
+    const g0 = x + 440;
+    const lane = this.nextSafe(diff);
+    this.gap(g0, g0 + width);
+    for (let i = 0; i < 3; i++) this.fruit(x + i * 70, 64, lane);
+    const w = 240;
+    const e1 = this.elevator(g0 - 20, lane, 125, w, 50, 1.8);
+    const e2 = this.elevator(g0 + width + 180, lane, 150, w, 50, 1.8);
+    e2.t = e1.t + 1.5;
+    for (const e of [e1, e2]) for (let i = 0; i < 3; i++) this.fruit(e.x - 70 + i * 70, e.base + 52, lane);
+    if (distance > 100 && chance(0.4 + 0.3 * diff)) this.item(weighted({ green: 40, purple: 40, blue: 20 }), g0 + width / 2, 290, lane);
+    return 440 + width + 180 + 260;
+  }
+
   pBranch(x, spx, diff, distance) {
     const bx = x + 420;
     const free = this.nextSafe(diff);
@@ -385,6 +439,12 @@ export class World {
   update(dt, ctx) {
     const { camX, speedPx, player, playerX, time, cb } = ctx;
     this.time = time;
+    for (const cc of this.hazards.active) {
+      if (cc.kind !== 'coconut') continue;
+      cc.x += (cc.deflected ? CONFIG.boss.deflectSpeed : -CONFIG.boss.coconutSpeed) * dt;
+      cc.rolled += (cc.deflected ? 1 : -1) * (CONFIG.boss.coconutSpeed + speedPx * (cc.deflected ? 0 : 1)) * dt;
+      if (cc.x > camX + this.viewW + 500) this.hazards.release(cc);
+    }
     for (const b of this.hazards.active) {
       if (b.kind !== 'boulder') continue;
       const dist = b.x - camX;
@@ -395,6 +455,28 @@ export class World {
         b.x -= CONFIG.boulder.speed * dt;
         b.rolled += (CONFIG.boulder.speed + speedPx) * dt;
         b.warn = 0;
+      }
+    }
+    for (const pl of this.platforms.active) {
+      if (pl.amp) {
+        pl.t += dt;
+        pl.top = pl.base + Math.sin(pl.t * pl.spd) * pl.amp;
+        pl.y0 = pl.top - pl.h;
+      }
+    }
+    // crates left hanging in the air fall until something supports them
+    for (const c of this.crates.active) {
+      if (c.y0 <= 0.5) { c.y0 = 0; c.vy = 0; continue; }
+      let support = 0;
+      for (const o of this.crates.active) {
+        if (o === c || o.lane !== c.lane || Math.abs(o.x - c.x) > 30) continue;
+        const top = o.y0 + o.h;
+        if (top <= c.y0 + 3 && top > support) support = top;
+      }
+      if (c.y0 > support + 0.5) {
+        c.vy = (c.vy || 0) - 2800 * dt;
+        c.y0 = Math.max(support, c.y0 + c.vy * dt);
+        if (c.y0 <= support) c.vy = 0;
       }
     }
     for (const c of this.crates.active) {

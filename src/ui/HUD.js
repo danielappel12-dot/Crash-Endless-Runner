@@ -11,9 +11,10 @@ export class HUD {
     el.className = 'hud hidden';
     el.innerHTML = `
       <div class="panel hud-left">
+        <div class="hl-top"><div class="face">${ICON.face}</div><div class="hearts" data-k="hearts"></div></div>
+        <div class="crate-counter chunk"><span class="cicon">${ICON.crate}</span><span data-k="crates">0/0</span></div>
         <div class="hud-score chunk" data-k="score">0</div>
         <div class="hud-sub chunk"><span>BEST <b data-k="best">0</b></span></div>
-        <div class="hearts" data-k="hearts"></div>
         <div class="masks" data-k="masks"></div>
       </div>
       <div class="panel hud-center">
@@ -35,6 +36,7 @@ export class HUD {
         <button class="round-btn" data-k="pause" title="Pause (Esc)">❚❚</button>
         <button class="round-btn" data-k="mute" title="Sound">🔊</button>
       </div>
+      <div class="bossbar hidden" data-k="bossbar"><div class="bn chunk">KING SCUTTLER</div><div class="bhp" data-k="bhp"></div></div>
       <div class="powerups" data-k="pus"></div>
       <div class="toasts" data-k="toasts"></div>
       <div class="flash" data-k="flash"></div>
@@ -100,6 +102,21 @@ export class HUD {
     this.setMuteIcon(handlers.isSoundOn());
   }
 
+  setBoss(b) {
+    const bar = this.q.bossbar;
+    if (!b) {
+      bar.classList.add('hidden');
+      this._bossKey = '';
+      return;
+    }
+    bar.classList.remove('hidden');
+    const key = b.hp + '/' + b.max;
+    if (key !== this._bossKey) {
+      this._bossKey = key;
+      this.q.bhp.innerHTML = Array.from({ length: b.max }, (_, i) => `<i class="${i < b.hp ? 'on' : ''}"></i>`).join('');
+    }
+  }
+
   show() { this.el.classList.remove('hidden'); }
   hide() { this.el.classList.add('hidden'); }
 
@@ -145,6 +162,7 @@ export class HUD {
     if (s.score - d.score < 1) d.score = s.score;
     d.dist += (s.distance - d.dist) * Math.min(1, dt * 14);
     this.q.score.textContent = fmt(d.score);
+    this.q.crates.textContent = `${s.crates}/${s.cratesTotal}`;
     this.q.dist.textContent = fmt(d.dist);
     this.q.best.textContent = fmt(Math.max(s.best.score, s.score));
     this.q.lvl.textContent = `LV ${s.level} · ${Math.round(s.speed)} m/s`;

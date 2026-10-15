@@ -60,8 +60,15 @@ export class CollisionSystem {
 
     for (const h of world.hazards.active) {
       if (Math.abs(h.x - px) > 400 || !this.sameLane(p, h)) continue;
+      if (h.deflected) continue;
       let hitBox = h;
       if (h.kind === 'boulder') hitBox = { x: h.x, w: h.w * 0.8, y0: 0, h: h.h * 0.85 };
+      if (h.kind === 'coconut') {
+        // spin (or mask power) knocks boss coconuts back at the boss
+        if (!h.deflected && (p.spinTimer > 0 || g.powerups.invincible) && Math.abs(h.x - px) < CONFIG.player.spinReach + h.w / 2 + 20) cb.deflect(h);
+        else if (!h.deflected && overlap(hitBox)) cb.hit(h);
+        continue;
+      }
       if (overlap(hitBox) && !standingOn(h)) cb.hit(h);
       this.nearMiss(p, px, h, cb);
     }
@@ -80,8 +87,11 @@ export class CollisionSystem {
         const hx = r.x1 > c.x - c.w / 2 && r.x0 < c.x + c.w / 2;
         if (hx && p.y >= top - 34 && p.vy <= 0 && !p.grounded) cb.bounce(c);
         else if (overlap(c, 10)) cb.smash(c);
-      } else if (overlap(c, 8)) {
-        cb.smash(c);
+      } else {
+        const onTop = p.vy <= 0 && !p.grounded && p.y >= top - 34 && p.y <= top + 26 &&
+          r.x1 > c.x - c.w / 2 && r.x0 < c.x + c.w / 2;
+        if (onTop) cb.smashTop(c);
+        else if (overlap(c, 8)) cb.smash(c);
       }
     }
 

@@ -48,6 +48,11 @@ export const CONFIG = {
   },
 
   boulder: { speed: 520, warnDistance: 1000, triggerDistance: 350 },
+
+  boss: {
+    first: 650, every: 1500, baseHp: 3, coconutSpeed: 330, deflectSpeed: 1050,
+    windup: 0.95, idle: 0.7, recover: 1.0, stun: 1.5, bossX: 190, // screen px from the right edge
+  },
   particles: { max: 420 },
 };
 
@@ -55,7 +60,7 @@ const KEY = 'wumpaRush.v1';
 
 const DEFAULT_STORE = {
   best: { score: 0, distance: 0, gems: 0, fruit: 0 },
-  settings: { sound: true, volume: 0.7, music: true, musicVolume: 0.6, swipe: 1, shake: true, quality: 'high' },
+  settings: { sound: true, volume: 0.7, music: true, musicVolume: 0.6, swipe: 1, shake: true, quality: 'high', style: 'painted' },
 };
 
 export function loadStore() {

@@ -57,6 +57,7 @@ export class Menu {
         <div class="setting"><label>MUSIC VOLUME</label><input type="range" min="0" max="1" step="0.05" data-k="musicVolume"></div>
         <div class="setting"><label>SWIPE SENSITIVITY</label><input type="range" min="0.5" max="2" step="0.1" data-k="swipe"></div>
         <div class="setting"><label>CAMERA SHAKE</label><button class="toggle" data-k="shake"></button></div>
+        <div class="setting"><label>ART STYLE</label><select class="toggle" data-k="style"><option value="painted">PAINTED</option><option value="pixel">PIXEL</option></select></div>
         <div class="setting"><label>GRAPHICS</label><select class="toggle" data-k="quality"><option value="high">HIGH</option><option value="low">LOW</option></select></div>
         <div class="setting"><label>BEST SCORES</label><button class="toggle" data-a="reset">RESET</button></div>
         <div class="row"><button class="btn small" data-a="back">Back</button></div>
@@ -82,7 +83,7 @@ export class Menu {
     }
     // settings controls
     const q = (k) => this.settings.querySelector(`[data-k="${k}"]`);
-    this.ctl = { sound: q('sound'), volume: q('volume'), music: q('music'), musicVolume: q('musicVolume'), swipe: q('swipe'), shake: q('shake'), quality: q('quality') };
+    this.ctl = { sound: q('sound'), volume: q('volume'), music: q('music'), musicVolume: q('musicVolume'), swipe: q('swipe'), shake: q('shake'), quality: q('quality'), style: q('style') };
     this.ctl.sound.addEventListener('click', () => h.onMute());
     this.ctl.volume.addEventListener('input', () => h.onVolume(parseFloat(this.ctl.volume.value)));
     this.ctl.music.addEventListener('click', () => h.onMusic());
@@ -95,6 +96,11 @@ export class Menu {
       store.settings.shake = !store.settings.shake;
       persist();
       this.syncSettings();
+    });
+    this.ctl.style.addEventListener('change', () => {
+      store.settings.style = this.ctl.style.value;
+      persist();
+      h.onQuality();
     });
     this.ctl.quality.addEventListener('change', () => {
       store.settings.quality = this.ctl.quality.value;
@@ -143,6 +149,7 @@ export class Menu {
     this.ctl.musicVolume.value = s.musicVolume;
     this.ctl.swipe.value = s.swipe;
     this.ctl.quality.value = s.quality;
+    this.ctl.style.value = s.style || 'painted';
     this.sound.textContent = s.sound ? '🔊' : '🔇';
   }
 

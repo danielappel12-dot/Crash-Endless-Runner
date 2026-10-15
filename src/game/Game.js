@@ -8,6 +8,7 @@ import { ScoreManager } from './ScoreManager.js';
 import { AudioManager } from './AudioManager.js';
 import { InputManager } from './InputManager.js';
 import { PowerUps, POWERUPS, GEM_STYLE } from './PowerUp.js';
+import { Boss } from './Boss.js';
 import { HUD } from '../ui/HUD.js';
 import { Menu } from '../ui/Menu.js';
 import { GameOver } from '../ui/GameOver.js';
@@ -15,7 +16,7 @@ import { GameOver } from '../ui/GameOver.js';
 const V = CONFIG.view;
 const WOOD = [0xd9964e, 0x8a5424, 0xc28a4c, 0xf0d09a];
 const FIRE = [0xff4a1a, 0xff8a1e, 0xffd23a, 0xffffff];
-const SPECIAL = ['ruins', 'bridge', 'rocky'];
+const ZONES = ['lagoon', 'jungle', 'ruins', 'rocky'];
 
 function seeded(i) {
   let s = (i * 2654435761) >>> 0;
@@ -36,6 +37,7 @@ export class Game {
     this.player = new Player();
     this.world = new World();
     this.powerups = new PowerUps();
+    this.boss = new Boss(this);
     this.score = new ScoreManager();
     this.collision = new CollisionSystem(this);
 
@@ -117,6 +119,8 @@ export class Game {
   }
 
   applyQuality() {
+    this.renderer.setStyle(store.settings.style || 'painted');
+    document.body.classList.toggle('painted', this.renderer.style === 'painted');
     this.renderer.setQuality(store.settings.quality === 'low');
     this.world.viewW = this.renderer.viewW;
   }
@@ -138,13 +142,15 @@ export class Game {
     this.particles.clear();
     this.player.reset();
     this.powerups.reset();
+    this.boss.reset();
+    this.nextBossAt = CONFIG.boss.first;
     this.maskFx.length = 0;
     this.camX = 0;
     this.world.reset();
     this.world.viewW = this.renderer.viewW;
     this.world.nextX = 700;
     this.world.ensure(0, CONFIG.speed.start, 0);
-    this.renderer.biome = this.renderer.prevBiome = 'jungle';
+    this.renderer.biome = this.renderer.prevBiome = 'lagoon';
     this.renderer.fade = 1;
   }
 
@@ -175,10 +181,11 @@ export class Game {
     this.shake = 0;
     this.speed = CONFIG.speed.start * 0.6;
     this.hud.reset(this.score.best);
+    this.hud.setBoss(null);
     this.hud.show();
     this.hud.toast('GO!', '#4ddc44');
     this.state = 'playing';
-    this.audio.music.play('jungle');
+    this.audio.music.play(this.renderer.biome);
     this.audio.music.setIntensity(0);
   }
 
@@ -264,18 +271,16 @@ export class Game {
     return S.start + (S.max - S.start) * Math.min(1, this.score.distance / S.distanceToMax);
   }
 
+  // zones: the lagoon pier first, then a pseudo-random sequence that never repeats back-to-back
   biomeAt(distance) {
     const idx = Math.floor(distance / CONFIG.difficulty.biomeLength);
-    const D = CONFIG.difficulty;
     const pick = (i) => {
-      if (i <= 0) return 'jungle';
-      const level = (i * D.biomeLength) / CONFIG.speed.levelEvery;
-      const p = Math.min(D.specialBiomeMax, D.specialBiomeBase + level * D.specialBiomePerLevel);
-      if (seeded(i) < p) return SPECIAL[Math.floor(seeded(i + 99) * SPECIAL.length)];
-      return 'jungle';
+      if (i <= 0) return 'lagoon';
+      const r = seeded(i);
+      return r < 0.3 ? 'lagoon' : r < 0.55 ? 'jungle' : r < 0.8 ? 'ruins' : 'rocky';
     };
     let b = pick(idx);
-    if (b !== 'jungle' && b === pick(idx - 1)) b = SPECIAL[(SPECIAL.indexOf(b) + 1) % SPECIAL.length];
+    if (idx > 0 && b === pick(idx - 1)) b = ZONES[(ZONES.indexOf(b) + 1 + Math.floor(seeded(idx + 7) * 3)) % ZONES.length];
     return b;
   }
 
@@ -351,6 +356,12 @@ export class Game {
     if (this.renderer.setBiome(biome)) this.audio.music.play(biome);
     this.audio.music.setIntensity((speed - S.start) / (S.max - S.start));
     this.particles.lane = p.laneF;
+    if (!dying && !this.boss.active && this.score.distance >= this.nextBossAt) {
+      this.boss.begin();
+      this.nextBossAt = Infinity; // re-armed when the fight ends
+    }
+    this.boss.update(dt);
+    this.hud.setBoss(this.boss.active && this.boss.state !== 'dead' ? { hp: this.boss.hp, max: this.boss.maxHp } : null);
     this.world.ensure(this.camX, Math.max(speed, S.start * 0.8), this.score.distance);
     const magnet = this.powerups.has('magnet') ? CONFIG.powerups.magnet.radius : 0;
     this.world.update(dt, this.worldCtx(magnet));
@@ -391,7 +402,7 @@ export class Game {
     this.hud.update(dt, {
       score: this.score.score, best: this.score.best, distance: this.score.distance, fruit: this.score.fruit,
       gems: this.score.gems, gemTypes: this.score.gemTypes, level: this.score.level, speed,
-      speedRatio: Math.max(0, Math.min(1, (speed - S.start) / (S.max - S.start))), lives: this.lives, timers: this.powerups.timers, masks: this.powerups.masks,
+      speedRatio: Math.max(0, Math.min(1, (speed - S.start) / (S.max - S.start))), lives: this.lives, timers: this.powerups.timers, masks: this.powerups.masks, crates: this.score.crates, cratesTotal: this.world.cratesTotal,
     });
   }
 
@@ -401,6 +412,8 @@ export class Game {
     this._cb = {
       hit: (o) => this.damage(o.kind),
       smash: (c) => this.smashCrate(c),
+      smashTop: (c) => { this.smashCrate(c); this.player.stomp(820); },
+      deflect: (h) => this.deflectCoconut(h),
       bounce: (c) => this.bounceCrate(c),
       explode: (c) => this.explodeCrate(c),
       collect: (it) => this.collect(it),
@@ -576,6 +589,16 @@ export class Game {
     this.hud.toast(`${style.label}  +${pts}`, '#' + style.color.toString(16).padStart(6, '0'));
     this.hud.flash('white');
     this.shake = Math.max(this.shake, 3);
+  }
+
+  deflectCoconut(h) {
+    if (h.deflected) return;
+    h.deflected = true;
+    this.audio.stomp();
+    this.particles.lane = h.lane;
+    this.particles.stars(h.x, 60, 6, [0xffd23a, 0xffffff], 380);
+    this.particles.pop(h.x, 130, 'BAT!', '#ffd23a');
+    this.shake = Math.max(this.shake, 5);
   }
 
   killEnemy(e, how) {

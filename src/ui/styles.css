@@ -193,3 +193,115 @@ select.toggle { appearance: none; text-align: center; }
 .maskslot img.px { width: 24px; height: 24px; }
 .tbtn.wide { width: 104px; }
 @media (max-width: 760px) { .maskslot, .maskslot img.px { width: 18px; height: 18px; } .masks { margin-top: 5px; } .tbtn.wide { width: 84px; font-size: 11px; } }
+
+/* ======================================================================
+   Painted theme (default): soft, rounded, hand-painted-platformer HUD
+   ====================================================================== */
+.paint-only { display: none; }
+body.painted .paint-only { display: block; }
+body.painted .px-only { display: none; }
+.crate-counter, .face { display: none; }
+.hl-top { display: flex; align-items: center; gap: 12px; }
+
+body.painted {
+  --font: 'Titan One', 'Impact', 'Arial Black', sans-serif;
+  --body: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+  --ink: #5a1d08;
+  --panel: rgba(14, 30, 60, 0.55);
+  --panel-b: rgba(255, 190, 90, 0.7);
+}
+body.painted .chunk {
+  font-family: var(--font); letter-spacing: 0.02em; color: #ff9a2e;
+  -webkit-text-stroke: 5px #6a1d05; paint-order: stroke fill; text-shadow: 0 4px 0 rgba(90,25,5,0.65);
+}
+body.painted .panel { background: none; border: none; box-shadow: none; backdrop-filter: none; }
+body.painted .face { display: block; }
+body.painted .face img { width: 104px; height: 104px; filter: drop-shadow(0 3px 0 rgba(90,25,5,.5)); }
+body.painted .crate-counter { display: flex; align-items: center; gap: 10px; font-size: 44px; line-height: 1; margin-top: 4px; }
+body.painted .crate-counter .cicon img { width: 62px; height: 62px; filter: drop-shadow(0 3px 0 rgba(90,25,5,.5)); }
+body.painted .hud-left { top: 8px; left: 18px; padding: 0; min-width: 0; }
+body.painted .hearts { margin: 0; gap: 8px; }
+body.painted .heart, body.painted .heart img { width: 44px; height: 44px; }
+body.painted .heart { filter: drop-shadow(0 3px 0 rgba(90,25,5,.5)); }
+body.painted .hud-score { font-size: 28px; margin-top: 6px; color: #ffd23a; }
+body.painted .hud-sub { font-size: 14px; margin-top: 4px; font-family: var(--font); }
+body.painted .hud-sub b { color: #9bff6a; }
+body.painted .hud-center { top: 10px; padding: 0; }
+body.painted .hud-dist { font-size: 40px; }
+body.painted .hud-lvl { font-size: 14px; color: #bff7ff; -webkit-text-stroke: 3px #123a58; paint-order: stroke fill; text-shadow: none; margin-top: 6px; }
+body.painted .speedbar { height: 10px; border: 3px solid #123a58; border-radius: 8px; background: rgba(10,30,60,.6); overflow: hidden; }
+body.painted .speedbar i { background: linear-gradient(90deg, #6aff6a, #ffd23a, #ff5a2a); }
+body.painted .hud-right { top: 10px; right: 20px; padding: 0; gap: 4px; min-width: 0; }
+body.painted .counter { font-size: 42px; }
+body.painted .counter img, body.painted .gems img { filter: drop-shadow(0 3px 0 rgba(90,25,5,.5)); }
+body.painted .counter img.paint-only { width: 44px; height: 44px; }
+body.painted .gems { font-size: 22px; gap: 12px; }
+body.painted .gems img.paint-only { width: 26px; height: 26px; }
+body.painted .gem-total { font-size: 14px; }
+body.painted .maskslot, body.painted .maskslot img { width: 34px; height: 34px; }
+body.painted .masks { margin-top: 8px; }
+body.painted .pu { border-radius: 16px; background: var(--panel); border-width: 3px; box-shadow: 0 0 14px var(--c, #fff); }
+body.painted .pu .ic img { width: 34px; height: 34px; }
+body.painted .pu .nm { font-size: 13px; }
+body.painted .pu .bar { border-radius: 6px; }
+body.painted .hud-btns { top: 150px; right: 20px; }
+body.painted .round-btn { width: 46px; height: 46px; border-radius: 50%; background: rgba(14,30,60,.6); border: 3px solid rgba(255,190,90,.85); box-shadow: 0 3px 0 rgba(0,0,0,.35); font-family: var(--body); }
+body.painted .toast { border-radius: 40px; font-family: var(--font); background: rgba(14,30,60,.7); animation-timing-function: ease-out; }
+body.painted .tbtn { border-radius: 50%; border: 3px solid rgba(255,255,255,.7); box-shadow: none; background: rgba(14,30,60,.55); font-family: var(--font); }
+body.painted .tbtn.wide { border-radius: 40px; }
+body.painted .tbtn.act { background: rgba(255,154,46,.75); }
+
+/* title + menus */
+body.painted .logo { font-family: var(--font); font-weight: normal; letter-spacing: .01em; line-height: .9; color: #ffa238;
+  -webkit-text-stroke: 9px #6a1d05; paint-order: stroke fill; text-shadow: 0 8px 0 rgba(90,25,5,.7), 0 14px 22px rgba(0,0,0,.35); transform: rotate(-3deg); }
+body.painted .logo span { color: #77e050; -webkit-text-stroke-color: #12461a; }
+body.painted .tagline { font-family: var(--font); letter-spacing: .1em; font-size: clamp(14px, 2vw, 24px); text-shadow: 0 3px 0 rgba(0,0,0,.55); }
+body.painted .best-line { font-family: var(--font); font-size: 16px; letter-spacing: .03em; line-height: 1.5; }
+body.painted .btn { font-family: var(--font); font-size: 26px; letter-spacing: .06em; border-radius: 18px; border: 4px solid #5a1d08; min-width: 260px; padding: 12px 30px;
+  background: linear-gradient(#ffc04a, #ff8a1e 55%, #e8620a); box-shadow: 0 6px 0 #7a3200, 0 12px 20px rgba(0,0,0,.35); text-shadow: 0 3px 0 rgba(90,36,0,.85); }
+body.painted .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #7a3200; }
+body.painted .btn.green { background: linear-gradient(#8cf27a, #3cc43c 55%, #22992a); border-color: #0d3a10; box-shadow: 0 6px 0 #14601c, 0 12px 20px rgba(0,0,0,.35); }
+body.painted .btn.blue { background: linear-gradient(#7adcff, #2f9af0 55%, #1f6fcc); border-color: #0c2a5a; box-shadow: 0 6px 0 #123e82, 0 12px 20px rgba(0,0,0,.35); }
+body.painted .btn.small { font-size: 18px; min-width: 0; padding: 8px 22px; }
+body.painted .card { border-radius: 22px; border: 4px solid #ff9a2e; background: linear-gradient(rgba(20,44,84,.94), rgba(10,24,52,.95)); box-shadow: 0 10px 0 rgba(0,0,0,.35), 0 0 50px rgba(0,0,0,.5); }
+body.painted .card h2, body.painted .go-title { font-family: var(--font); font-weight: normal; }
+body.painted .card h2 { font-size: 36px; color: #ff9a2e; }
+body.painted .card h3 { font-family: var(--font); font-size: 20px; color: #7aeb5a; }
+body.painted .card p, body.painted .card li, body.painted .keys { font-size: 15px; }
+body.painted kbd { border-radius: 6px; font-family: var(--font); font-size: 13px; padding: 2px 8px; }
+body.painted .go-title { font-size: clamp(44px, 8vw, 88px); color: #ff6a4a; -webkit-text-stroke: 7px #5a1008; paint-order: stroke fill; text-shadow: 0 6px 0 rgba(90,16,8,.7); }
+body.painted .stat { border-radius: 14px; border: 2px solid rgba(255,255,255,.18); box-shadow: none; background: rgba(0,0,0,.3); }
+body.painted .stat small { font-family: var(--font); font-size: 13px; }
+body.painted .stat b { font-family: var(--font); font-size: 30px; }
+body.painted .setting label { font-family: var(--font); font-size: 16px; }
+body.painted .toggle { border-radius: 20px; font-family: var(--font); font-size: 15px; border-width: 2px; border-color: #fff; box-shadow: none; }
+body.painted .toggle.on { border-color: #4ddc44; }
+body.painted .countdown { font-family: var(--font); color: #ffd23a; -webkit-text-stroke: 10px #5a1d08; paint-order: stroke fill; }
+body.painted .countdown span { text-shadow: 0 8px 0 rgba(90,29,8,.7); }
+body.painted .sound-btn { border-radius: 50%; }
+
+@media (max-width: 760px) {
+  body.painted .face img { width: 62px; height: 62px; }
+  body.painted .heart, body.painted .heart img { width: 28px; height: 28px; }
+  body.painted .crate-counter { font-size: 26px; } body.painted .crate-counter .cicon img { width: 38px; height: 38px; }
+  body.painted .hud-score { font-size: 18px; } body.painted .hud-sub { font-size: 10px; }
+  body.painted .hud-dist { font-size: 24px; } body.painted .hud-center { top: 80px; }
+  body.painted .counter { font-size: 26px; } body.painted .counter img.paint-only { width: 28px; height: 28px; }
+  body.painted .gems { font-size: 14px; gap: 7px; } body.painted .gems img.paint-only { width: 18px; height: 18px; }
+  body.painted .maskslot, body.painted .maskslot img { width: 22px; height: 22px; }
+  body.painted .hud-btns { top: 118px; right: 8px; }
+  body.painted .btn { font-size: 20px; min-width: 200px; }
+}
+@media (max-height: 520px) { body.painted .hud-center { display: none; } body.painted .logo { font-size: 12vh; } }
+
+.bossbar { position: absolute; top: 112px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; }
+.bossbar .bn { font-size: 14px; }
+.bhp { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+.bhp i { width: 34px; height: 14px; background: #1a0f08; border: 3px solid #1a0f08; box-shadow: inset 0 0 0 2px rgba(255,255,255,.15); }
+.bhp i.on { background: #ff4a3a; box-shadow: inset 0 3px 0 rgba(255,255,255,.35); }
+body.painted .bossbar { top: 78px; }
+body.painted .bn { font-size: 20px; }
+body.painted .bhp i { border-radius: 8px; width: 40px; height: 16px; border-color: #3a0a04; }
+@media (max-width: 760px) { .bossbar { top: 150px; } body.painted .bossbar { top: 118px; } }
+.hl-top { margin-bottom: 8px; }
+body.painted .hl-top { margin-bottom: 0; }

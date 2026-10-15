@@ -100,8 +100,8 @@ export class Player {
   }
 
   // bounce off an enemy's head
-  stomp() {
-    this.vy = P.stompBounce;
+  stomp(v = P.stompBounce) {
+    this.vy = v;
     this.grounded = false;
     this.jumping = false;
     this.squash = 0.3;
@@ -164,9 +164,13 @@ export class Player {
     if (Math.abs(this.laneF - this.lane) < 0.01) this.laneF = this.lane;
 
     if (this.mode === 'run' || this.mode === 'dead') {
+      if (this.grounded && groundH > this.y) this.y = groundH; // carried up by a rising platform
       if (this.grounded && groundH < this.y - 0.5) {
-        this.grounded = false;
-        this.coyote = P.coyoteTime;
+        if (this.y - groundH <= 9) this.y = groundH; // riding a platform that is sinking
+        else {
+          this.grounded = false;
+          this.coyote = P.coyoteTime;
+        }
       }
       if (this.grounded) {
         this.coyote = P.coyoteTime;
