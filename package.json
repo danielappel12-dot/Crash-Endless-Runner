@@ -1,0 +1,18 @@
+{
+  "name": "wumpa-rush",
+  "version": "1.0.0",
+  "description": "Wumpa Rush - a 3D endless runner built with Three.js and Vite",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173"
+  },
+  "dependencies": {
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.11"
+  }
+}
