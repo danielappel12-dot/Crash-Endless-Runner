@@ -38,8 +38,8 @@ export class HUD {
       <div class="toasts" data-k="toasts"></div>
       <div class="flash" data-k="flash"></div>
       <div class="touch">
-        <div class="grp"><button class="tbtn" data-a="left">◀</button><button class="tbtn" data-a="right">▶</button></div>
-        <div class="grp"><button class="tbtn" data-a="slide">▼</button><button class="tbtn" data-a="jump">▲</button></div>
+        <div class="grp"><button class="tbtn wide" data-a="slide">SLIDE ▼</button></div>
+        <div class="grp"><button class="tbtn wide" data-a="jump">JUMP ▲</button></div>
       </div>
       <div class="countdown hidden" data-k="countdown"></div>`;
     root.appendChild(el);

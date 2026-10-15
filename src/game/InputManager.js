@@ -30,11 +30,15 @@ export class InputManager {
       if (a) this.held.delete(a);
     });
 
-    // swipe gestures on the canvas
+    // touch / mouse on the canvas: tap right half = jump, left half = slide,
+    // swipe up/down also works. Mouse click = jump.
     let sx = 0, sy = 0, sid = null, fired = false;
     const threshold = () => 28 / Math.max(0.4, store.settings.swipe);
     target.addEventListener('pointerdown', (e) => {
-      if (e.pointerType === 'mouse') return;
+      if (e.pointerType === 'mouse') {
+        if (e.button === 0) this.onAction('jump', 'mouse');
+        return;
+      }
       sid = e.pointerId;
       sx = e.clientX;
       sy = e.clientY;
@@ -42,19 +46,19 @@ export class InputManager {
     });
     target.addEventListener('pointermove', (e) => {
       if (e.pointerId !== sid || fired) return;
-      const dx = e.clientX - sx;
       const dy = e.clientY - sy;
-      const t = threshold();
-      if (Math.abs(dx) < t && Math.abs(dy) < t) return;
+      if (Math.abs(dy) < threshold() || Math.abs(dy) < Math.abs(e.clientX - sx)) return;
       fired = true;
-      if (Math.abs(dx) > Math.abs(dy)) this.onAction(dx < 0 ? 'left' : 'right', 'touch');
-      else this.onAction(dy < 0 ? 'jump' : 'slide', 'touch');
+      this.onAction(dy < 0 ? 'jump' : 'slide', 'touch');
     });
-    const end = (e) => {
-      if (e.pointerId === sid) sid = null;
-    };
-    target.addEventListener('pointerup', end);
-    target.addEventListener('pointercancel', end);
+    target.addEventListener('pointerup', (e) => {
+      if (e.pointerId !== sid) return;
+      sid = null;
+      if (!fired && Math.hypot(e.clientX - sx, e.clientY - sy) < threshold()) {
+        this.onAction(e.clientX > window.innerWidth / 2 ? 'jump' : 'slide', 'touch');
+      }
+    });
+    target.addEventListener('pointercancel', () => { sid = null; });
     target.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 }

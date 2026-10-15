@@ -17,24 +17,22 @@ export class Menu {
     this.howto = this.make('div', 'screen dim hidden', `
       <div class="card">
         <h2>HOW TO PLAY</h2>
-        <p>Rukk the marsupial runs automatically through the jungle. Collect <b>Wumpa Fruit</b>, smash crates, grab gems and survive as long as you can!</p>
+        <p>Rukk the marsupial sprints automatically through the jungle. Collect <b>Wumpa Fruit</b>, smash crates, grab gems and survive as long as you can!</p>
         <h3>CONTROLS</h3>
         <div class="keys">
-          <div><kbd>A</kbd><kbd>←</kbd></div><div>Move left</div>
-          <div><kbd>D</kbd><kbd>→</kbd></div><div>Move right</div>
           <div><kbd>W</kbd><kbd>↑</kbd><kbd>Space</kbd></div><div>Jump (jump onto bouncy crates to launch!)</div>
           <div><kbd>S</kbd><kbd>↓</kbd></div><div>Slide (press in mid-air to dive)</div>
           <div><kbd>Esc</kbd></div><div>Pause</div>
           <div><kbd>R</kbd></div><div>Restart after game over</div>
-          <div>📱 Touch</div><div>Swipe, or use the on-screen buttons</div>
+          <div>📱 Touch</div><div>Tap right = jump, tap left = slide (or swipe up/down, or use the buttons)</div>
         </div>
         <h3>HAZARDS</h3>
         <ul>
-          <li><b>Logs &amp; barricades</b> – switch lanes or jump. <b>Rocks</b> – switch lanes.</li>
+          <li><b>Logs, rocks &amp; barricades</b> – jump over them. Hop onto logs and iron crates.</li>
           <li><b>Low branches</b> – slide under. <b>Ravines</b> – jump across.</li>
-          <li><b>Rolling boulders</b> – red arrows warn you; stay out of their lane.</li>
-          <li><b>TNT crates</b> start a fuse as you approach – move away or jump!</li>
-          <li><b>Iron crates</b> can't be broken – dodge or hop on top.</li>
+          <li><b>Rolling boulders</b> – a red ! warns you from the right; jump over them.</li>
+          <li><b>TNT crates</b> light a fuse as you approach – jump over the blast!</li>
+          <li><b>Iron crates</b> can't be broken – hop on top or jump them.</li>
         </ul>
         <h3>GOODIES</h3>
         <ul>

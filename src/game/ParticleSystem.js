@@ -1,232 +1,151 @@
-import * as THREE from 'three';
 import { CONFIG } from '../config/settings.js';
 
-// One pooled THREE.Points buffer for sparks/dust/smoke plus an InstancedMesh of
-// wooden/stone debris chunks. Fixed capacity: nothing is allocated at runtime.
-
-const VERT = /* glsl */ `
-  attribute float aSize;
-  attribute vec4 aColor;
-  varying vec4 vColor;
-  uniform float uScale;
-  void main() {
-    vColor = aColor;
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * uScale / max(0.1, -mv.z);
-    gl_Position = projectionMatrix * mv;
-  }
-`;
-const FRAG = /* glsl */ `
-  varying vec4 vColor;
-  void main() {
-    vec2 d = gl_PointCoord - 0.5;
-    float r = length(d) * 2.0;
-    if (r > 1.0 || vColor.a <= 0.0) discard;
-    float a = smoothstep(1.0, 0.35, r) * vColor.a;
-    gl_FragColor = vec4(vColor.rgb, a);
-  }
-`;
-
-const _c = new THREE.Color();
+// Fixed-size 2D particle pool: dots, stars, wood/stone chunks, rings, text pops.
+// Positions are world x and height-above-ground y.
+const hex = (n) => '#' + n.toString(16).padStart(6, '0');
 
 export class ParticleSystem {
-  constructor(scene) {
-    const N = CONFIG.particles.max;
-    this.N = N;
-    this.pos = new Float32Array(N * 3);
-    this.col = new Float32Array(N * 4);
-    this.size = new Float32Array(N);
-    this.vel = new Float32Array(N * 3);
-    this.life = new Float32Array(N);
-    this.maxLife = new Float32Array(N);
-    this.grav = new Float32Array(N);
-    this.baseSize = new Float32Array(N);
-    this.grow = new Float32Array(N);
-    this.rgb = new Float32Array(N * 3);
+  constructor() {
+    this.list = [];
+    for (let i = 0; i < CONFIG.particles.max; i++) {
+      this.list.push({ life: 0, x: 0, y: 0, vx: 0, vy: 0, max: 1, size: 8, color: '#fff', type: 'dot', rot: 0, vr: 0, g: 0, grow: 0, text: '' });
+    }
     this.next = 0;
-
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
-    g.setAttribute('aColor', new THREE.BufferAttribute(this.col, 4).setUsage(THREE.DynamicDrawUsage));
-    g.setAttribute('aSize', new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage));
-    this.uniforms = { uScale: { value: 500 } };
-    const mat = new THREE.ShaderMaterial({
-      vertexShader: VERT,
-      fragmentShader: FRAG,
-      uniforms: this.uniforms,
-      transparent: true,
-      depthWrite: false,
-    });
-    this.points = new THREE.Points(g, mat);
-    this.points.frustumCulled = false;
-    this.points.renderOrder = 5;
-    scene.add(this.points);
-
-    // debris
-    const D = CONFIG.particles.debris;
-    this.D = D;
-    this.debris = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0xffffff }), D);
-    this.debris.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.debris.frustumCulled = false;
-    this.dData = [];
-    const zero = new THREE.Matrix4().makeScale(0, 0, 0);
-    for (let i = 0; i < D; i++) {
-      this.dData.push({ life: 0, p: new THREE.Vector3(), v: new THREE.Vector3(), r: new THREE.Euler(), rv: new THREE.Vector3(), s: 0.2 });
-      this.debris.setMatrixAt(i, zero);
-      this.debris.setColorAt(i, _c.set(0xffffff));
-    }
-    this.dNext = 0;
-    this._m = new THREE.Matrix4();
-    this._q = new THREE.Quaternion();
-    this._v = new THREE.Vector3();
-    this._s = new THREE.Vector3();
-    scene.add(this.debris);
   }
 
-  setViewport(heightPx, fovDeg) {
-    this.uniforms.uScale.value = (heightPx * 0.5) / Math.tan((fovDeg * Math.PI) / 360);
+  _get() {
+    const p = this.list[this.next];
+    this.next = (this.next + 1) % this.list.length;
+    return p;
   }
 
-  /**
-   * emit(x,y,z,count,{color|colors,speed,up,life,size,gravity,spread,grow})
-   */
-  emit(x, y, z, count, o = {}) {
+  emit(x, y, count, o = {}) {
     const colors = o.colors || [o.color ?? 0xffffff];
-    const speed = o.speed ?? 4;
-    const up = o.up ?? 2;
-    const life = o.life ?? 0.7;
-    const size = o.size ?? 0.35;
-    const gravity = o.gravity ?? 9;
-    const spread = o.spread ?? 0.2;
-    const grow = o.grow ?? 0;
     for (let k = 0; k < count; k++) {
-      const i = this.next;
-      this.next = (this.next + 1) % this.N;
-      const a = Math.random() * Math.PI * 2;
-      const u = Math.random() * 2 - 1;
-      const r = Math.sqrt(1 - u * u);
-      const sp = speed * (0.4 + Math.random() * 0.8);
-      this.pos[i * 3] = x + (Math.random() - 0.5) * spread;
-      this.pos[i * 3 + 1] = y + (Math.random() - 0.5) * spread;
-      this.pos[i * 3 + 2] = z + (Math.random() - 0.5) * spread;
-      this.vel[i * 3] = Math.cos(a) * r * sp;
-      this.vel[i * 3 + 1] = u * sp * 0.6 + up * Math.random();
-      this.vel[i * 3 + 2] = Math.sin(a) * r * sp + (o.forward ?? 0);
-      this.life[i] = this.maxLife[i] = life * (0.6 + Math.random() * 0.6);
-      this.grav[i] = gravity;
-      this.baseSize[i] = size * (0.6 + Math.random() * 0.8);
-      this.grow[i] = grow;
-      _c.set(colors[(Math.random() * colors.length) | 0]);
-      this.rgb[i * 3] = _c.r;
-      this.rgb[i * 3 + 1] = _c.g;
-      this.rgb[i * 3 + 2] = _c.b;
+      const p = this._get();
+      const a = (o.angle ?? Math.random() * Math.PI * 2) + (o.angle !== undefined ? (Math.random() - 0.5) * (o.arc ?? 1) : 0);
+      const sp = (o.speed ?? 260) * (0.4 + Math.random() * 0.8);
+      p.x = x + (Math.random() - 0.5) * (o.spread ?? 10);
+      p.y = y + (Math.random() - 0.5) * (o.spread ?? 10);
+      p.vx = Math.cos(a) * sp + (o.vx ?? 0);
+      p.vy = Math.sin(a) * sp + (o.up ?? 0) * Math.random();
+      p.max = p.life = (o.life ?? 0.6) * (0.6 + Math.random() * 0.6);
+      p.size = (o.size ?? 10) * (0.6 + Math.random() * 0.8);
+      p.color = typeof colors[0] === 'number' ? hex(colors[(Math.random() * colors.length) | 0]) : colors[(Math.random() * colors.length) | 0];
+      p.type = o.type || 'dot';
+      p.rot = Math.random() * 6;
+      p.vr = (Math.random() - 0.5) * 12;
+      p.g = o.gravity ?? 900;
+      p.grow = o.grow ?? 0;
     }
   }
 
-  ring(x, y, z, count, o = {}) {
-    for (let k = 0; k < count; k++) {
-      const i = this.next;
-      this.next = (this.next + 1) % this.N;
-      const a = (k / count) * Math.PI * 2;
-      const sp = o.speed ?? 6;
-      this.pos[i * 3] = x;
-      this.pos[i * 3 + 1] = y;
-      this.pos[i * 3 + 2] = z;
-      this.vel[i * 3] = Math.cos(a) * sp;
-      this.vel[i * 3 + 1] = o.up ?? 0.5;
-      this.vel[i * 3 + 2] = Math.sin(a) * sp;
-      this.life[i] = this.maxLife[i] = o.life ?? 0.5;
-      this.grav[i] = 0;
-      this.baseSize[i] = o.size ?? 0.4;
-      this.grow[i] = 0;
-      _c.set(o.color ?? 0xffffff);
-      this.rgb[i * 3] = _c.r;
-      this.rgb[i * 3 + 1] = _c.g;
-      this.rgb[i * 3 + 2] = _c.b;
-    }
+  stars(x, y, count, colors, speed = 380) {
+    this.emit(x, y, count, { colors, type: 'star', speed, up: 200, life: 0.7, size: 16, gravity: 900 });
   }
 
-  chunks(x, y, z, count, colors, power = 6) {
-    for (let k = 0; k < count; k++) {
-      const d = this.dData[this.dNext];
-      const idx = this.dNext;
-      this.dNext = (this.dNext + 1) % this.D;
-      d.life = 0.9 + Math.random() * 0.5;
-      d.p.set(x + (Math.random() - 0.5) * 0.8, y + Math.random() * 0.6, z + (Math.random() - 0.5) * 0.8);
-      d.v.set((Math.random() - 0.5) * power, 2 + Math.random() * power * 0.7, (Math.random() - 0.5) * power);
-      d.r.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
-      d.rv.set((Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 14);
-      d.s = 0.14 + Math.random() * 0.22;
-      this.debris.setColorAt(idx, _c.set(colors[(Math.random() * colors.length) | 0]));
-    }
-    if (this.debris.instanceColor) this.debris.instanceColor.needsUpdate = true;
+  chunks(x, y, count, colors, power = 520) {
+    this.emit(x, y, count, { colors, type: 'chunk', speed: power, up: power * 0.8, life: 1.0, size: 16, gravity: 2200, spread: 40 });
+  }
+
+  ring(x, y, color, size = 20, life = 0.45) {
+    const p = this._get();
+    p.x = x; p.y = y; p.vx = p.vy = 0; p.g = 0;
+    p.max = p.life = life; p.size = size; p.grow = 160;
+    p.color = typeof color === 'number' ? hex(color) : color;
+    p.type = 'ring'; p.rot = 0; p.vr = 0;
+  }
+
+  // cartoon "POW!" style burst text
+  pop(x, y, text, color = '#ffd23a') {
+    const p = this._get();
+    p.x = x; p.y = y; p.vx = 0; p.vy = 90; p.g = 0;
+    p.max = p.life = 0.8; p.size = 40; p.grow = 0;
+    p.color = color; p.type = 'text'; p.text = text; p.rot = (Math.random() - 0.5) * 0.4; p.vr = 0;
   }
 
   update(dt) {
-    const { pos, vel, life, maxLife, col, size, rgb, grav, baseSize, grow } = this;
-    for (let i = 0; i < this.N; i++) {
-      if (life[i] <= 0) {
-        if (size[i] !== 0) {
-          size[i] = 0;
-          col[i * 4 + 3] = 0;
-        }
-        continue;
+    for (const p of this.list) {
+      if (p.life <= 0) continue;
+      p.life -= dt;
+      p.vy -= p.g * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.vr * dt;
+      if (p.type === 'chunk' && p.y < 4) {
+        p.y = 4;
+        p.vy *= -0.4;
+        p.vx *= 0.7;
       }
-      life[i] -= dt;
-      const t = Math.max(0, life[i] / maxLife[i]);
-      vel[i * 3 + 1] -= grav[i] * dt;
-      pos[i * 3] += vel[i * 3] * dt;
-      pos[i * 3 + 1] += vel[i * 3 + 1] * dt;
-      pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
-      col[i * 4] = rgb[i * 3];
-      col[i * 4 + 1] = rgb[i * 3 + 1];
-      col[i * 4 + 2] = rgb[i * 3 + 2];
-      col[i * 4 + 3] = Math.min(1, t * 1.6);
-      size[i] = baseSize[i] * (grow[i] ? 1 + (1 - t) * grow[i] : 0.5 + t * 0.5);
+      if (p.type === 'ring') p.size += p.grow * dt;
     }
-    const a = this.points.geometry.attributes;
-    a.position.needsUpdate = a.aColor.needsUpdate = a.aSize.needsUpdate = true;
+  }
 
-    let any = false;
-    for (let i = 0; i < this.D; i++) {
-      const d = this.dData[i];
-      if (d.life <= 0) continue;
-      d.life -= dt;
-      any = true;
-      d.v.y -= 22 * dt;
-      d.p.addScaledVector(d.v, dt);
-      if (d.p.y < 0.05) {
-        d.p.y = 0.05;
-        d.v.y *= -0.35;
-        d.v.x *= 0.7;
-        d.v.z *= 0.7;
+  draw(ctx, camX, groundY) {
+    for (const p of this.list) {
+      if (p.life <= 0) continue;
+      const t = Math.max(0, p.life / p.max);
+      const sx = p.x - camX;
+      const sy = groundY - p.y;
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.globalAlpha = Math.min(1, t * 1.8);
+      if (p.type === 'dot') {
+        const s = p.size * (0.5 + t * 0.5);
+        ctx.fillStyle = p.color;
+        ctx.strokeStyle = 'rgba(40,20,8,0.55)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, s, 0, 7);
+        ctx.fill();
+        ctx.stroke();
+      } else if (p.type === 'star') {
+        ctx.rotate(p.rot);
+        const s = p.size * (0.4 + t * 0.6);
+        ctx.fillStyle = p.color;
+        ctx.strokeStyle = '#2b1608';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+          const r = i % 2 ? s * 0.45 : s;
+          const a = (i / 10) * Math.PI * 2;
+          ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else if (p.type === 'chunk') {
+        ctx.rotate(p.rot);
+        const s = p.size * Math.min(1, t * 3);
+        ctx.fillStyle = p.color;
+        ctx.strokeStyle = '#2b1608';
+        ctx.lineWidth = 2.5;
+        ctx.fillRect(-s / 2, -s / 3, s, s * 0.66);
+        ctx.strokeRect(-s / 2, -s / 3, s, s * 0.66);
+      } else if (p.type === 'ring') {
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 6 * t + 1;
+        ctx.beginPath();
+        ctx.arc(0, 0, p.size, 0, 7);
+        ctx.stroke();
+      } else if (p.type === 'text') {
+        ctx.rotate(p.rot);
+        const sc = 0.6 + Math.min(1, (1 - t) * 6) * 0.5;
+        ctx.scale(sc, sc);
+        ctx.font = '900 44px Impact, "Arial Black", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.lineWidth = 9;
+        ctx.strokeStyle = '#2b1608';
+        ctx.lineJoin = 'round';
+        ctx.strokeText(p.text, 0, 0);
+        ctx.fillStyle = p.color;
+        ctx.fillText(p.text, 0, 0);
       }
-      d.r.x += d.rv.x * dt;
-      d.r.y += d.rv.y * dt;
-      d.r.z += d.rv.z * dt;
-      const s = d.life > 0 ? d.s * Math.min(1, d.life * 3) : 0;
-      this._q.setFromEuler(d.r);
-      this._s.set(s, s * 0.7, s);
-      this._m.compose(d.p, this._q, this._s);
-      this.debris.setMatrixAt(i, this._m);
-      if (d.life <= 0) {
-        this._m.makeScale(0, 0, 0);
-        this.debris.setMatrixAt(i, this._m);
-      }
+      ctx.restore();
     }
-    if (any || this._dirty) this.debris.instanceMatrix.needsUpdate = true;
-    this._dirty = any;
   }
 
   clear() {
-    this.life.fill(0);
-    this.size.fill(0);
-    this.col.fill(0);
-    const z = new THREE.Matrix4().makeScale(0, 0, 0);
-    for (let i = 0; i < this.D; i++) {
-      this.dData[i].life = 0;
-      this.debris.setMatrixAt(i, z);
-    }
-    this.debris.instanceMatrix.needsUpdate = true;
+    for (const p of this.list) p.life = 0;
   }
 }

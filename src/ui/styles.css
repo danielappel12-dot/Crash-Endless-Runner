@@ -196,3 +196,6 @@ select.toggle { appearance: none; text-align: center; }
   .row { margin-top: 10px; }
   .btn { padding: 9px 28px; font-size: 24px; }
 }
+
+.tbtn.wide { width: 150px; height: 84px; border-radius: 42px; font-size: 24px; letter-spacing: .06em; }
+@media (max-height: 520px) { .tbtn.wide { width: 120px; height: 64px; font-size: 20px; } }

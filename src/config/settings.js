@@ -1,80 +1,47 @@
 // Central place for every gameplay constant plus persisted user settings.
+// World units are virtual pixels on a 720px-tall stage; "height" means pixels above the ground line.
 
 export const CONFIG = {
-  lanes: { x: [-2.2, 0, 2.2], switchRate: 16 },
+  view: { H: 720, minW: 960, maxW: 1700, groundY: 600, playerX: 300, pxPerM: 30 },
 
   player: {
-    jumpVelocity: 17,
-    gravity: 58,
-    fastFall: 34,
+    jumpVelocity: 1300, // px/s
+    gravity: 3700, // px/s^2  -> apex ~228px, air time ~0.7s
+    fastFall: 1900,
     slideDuration: 0.75,
     coyoteTime: 0.1,
     inputBuffer: 0.14,
-    // collision box (half extents / heights)
-    halfWidth: 0.4,
-    halfDepth: 0.35,
-    standHeight: 1.7,
-    slideHeight: 0.8,
+    halfWidth: 24, // hit box
+    standHeight: 118,
+    slideHeight: 54,
     lives: 3,
     hitInvuln: 1.8,
     hitStagger: 0.6,
-    hitSlowdown: 0.55, // speed multiplier right after a hit (recovers)
+    hitSlowdown: 0.55,
   },
 
-  speed: {
-    start: 15,
-    max: 34,
-    distanceToMax: 2600, // metres until the cap is reached
-    levelEvery: 250, // metres per difficulty level
-  },
+  speed: { start: 15, max: 34, distanceToMax: 2600, levelEvery: 250 }, // m/s, metres
 
-  track: {
-    segmentLength: 56,
-    segmentCount: 8,
-    rowSpacing: 14,
-    rowsPerSegment: 4,
-    recycleBehind: 60,
-    width: 8,
-    gapLength: 6,
-  },
-
-  difficulty: {
-    maxLevel: 12,
-    specialBiomeBase: 0.2,
-    specialBiomePerLevel: 0.07,
-    specialBiomeMax: 0.8,
-    boulderFromLevel: 3,
-  },
+  difficulty: { maxLevel: 12, boulderFromLevel: 3, specialBiomeBase: 0.25, specialBiomePerLevel: 0.07, specialBiomeMax: 0.8, biomeLength: 450 },
 
   scoring: {
-    perMetre: 1,
-    fruit: 10,
-    crate: 50,
-    mystery: 100,
-    tnt: 0,
-    nearMiss: 25,
+    perMetre: 1, fruit: 10, crate: 50, mystery: 100, nearMiss: 25,
     gem: { green: 500, purple: 1000, blue: 2000, relic: 5000 },
   },
 
   powerups: {
-    magnet: { duration: 9, radius: 7.5 },
+    magnet: { duration: 9, radius: 330 },
     shield: { duration: 14 },
     multiplier: { duration: 10, factor: 2 },
   },
 
   crates: {
-    size: 1.4,
-    tntFuse: 0.9,
-    tntBlastHalfWidth: 1.5,
-    tntBlastHalfDepth: 2.6,
-    tntBlastHeight: 1.7,
-    bounceVelocity: 26,
-    fruitPerCrate: 5,
+    size: 84, tntFuse: 0.9, tntBlastHalfWidth: 190, tntBlastHeight: 130,
+    bounceVelocity: 1850, fruitPerCrate: 5,
   },
 
-  boulder: { speed: 22, warnDistance: 150, triggerDistance: 85 },
-
-  particles: { max: 700, debris: 160 },
+  boulder: { speed: 520, warnDistance: 1000, triggerDistance: 350 },
+  particles: { max: 420 },
 };
 
 const KEY = 'wumpaRush.v1';
@@ -98,11 +65,11 @@ export function loadStore() {
   }
 }
 
-export function saveStore(store) {
+export function saveStore(s) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(store));
+    localStorage.setItem(KEY, JSON.stringify(s));
   } catch {
-    /* storage unavailable (private mode) - game still works */
+    /* storage unavailable - game still works */
   }
 }
 

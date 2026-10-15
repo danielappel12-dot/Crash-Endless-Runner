@@ -1,4 +1,4 @@
-// Minimal object pool. Objects must expose `.mesh` (THREE.Object3D).
+// Minimal object pool for plain objects. Release is idempotent.
 export class Pool {
   constructor(create) {
     this.create = create;
@@ -11,14 +11,12 @@ export class Pool {
     o.active = true;
     o._i = this.active.length;
     this.active.push(o);
-    o.mesh.visible = true;
     return o;
   }
 
   release(o) {
     if (!o.active) return;
     o.active = false;
-    o.mesh.visible = false;
     const last = this.active.pop();
     if (last !== o) {
       this.active[o._i] = last;
