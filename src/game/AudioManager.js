@@ -155,6 +155,32 @@ export class AudioManager {
     this.tone({ f: 200, f2: 60, dur: 0.4, type: 'sawtooth', vol: 0.25 });
     [0, 5, 9, 12].forEach((s2, i) => this.tone({ f: 440 * Math.pow(1.0595, s2), dur: 0.14, type: 'square', vol: 0.12, delay: 0.1 + i * 0.07 }));
   }
+  hop() {
+    this.tone({ f: 330, f2: 560, dur: 0.1, type: 'square', vol: 0.1 });
+  }
+  bump() {
+    this.tone({ f: 140, f2: 100, dur: 0.08, type: 'square', vol: 0.12 });
+  }
+  splash() {
+    this.noise({ dur: 0.5, vol: 0.4, f: 1800, f2: 300, q: 0.7 });
+    this.tone({ f: 500, f2: 120, dur: 0.35, type: 'sine', vol: 0.18 });
+  }
+  squash() {
+    this.noise({ dur: 0.18, vol: 0.35, f: 2400, f2: 400 });
+    this.tone({ f: 260, f2: 70, dur: 0.25, type: 'sawtooth', vol: 0.2 });
+  }
+  bell() {
+    this.tone({ f: 1320, dur: 0.12, type: 'sine', vol: 0.12 });
+    this.tone({ f: 990, dur: 0.12, type: 'sine', vol: 0.08, delay: 0.001 });
+  }
+  trainPass() {
+    this.noise({ dur: 1.1, vol: 0.3, f: 500, f2: 120, q: 0.6 });
+    this.tone({ f: 180, f2: 150, dur: 0.9, type: 'sawtooth', vol: 0.1 });
+  }
+  hawk() {
+    this.tone({ f: 1800, f2: 700, dur: 0.6, type: 'sawtooth', vol: 0.15 });
+    this.noise({ dur: 0.5, vol: 0.2, f: 3000, f2: 500 });
+  }
   spin() {
     this.noise({ dur: 0.3, vol: 0.2, f: 600, f2: 3200, q: 1.5, type: 'bandpass' });
     this.tone({ f: 300, f2: 700, dur: 0.2, type: 'triangle', vol: 0.08, curve: 'lin' });

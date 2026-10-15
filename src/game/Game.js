@@ -1,29 +1,21 @@
 import { CONFIG, store } from '../config/settings.js';
-import { Player } from './Player.js';
-import { World } from './World.js';
-import { Renderer } from './Renderer.js';
-import { CollisionSystem } from './CollisionSystem.js';
+import { Grid, zoneAt } from './Grid.js';
+import { Hero } from './Hero.js';
+import { TopRenderer } from './TopRenderer.js';
 import { ParticleSystem } from './ParticleSystem.js';
 import { ScoreManager } from './ScoreManager.js';
 import { AudioManager } from './AudioManager.js';
 import { InputManager } from './InputManager.js';
 import { PowerUps, POWERUPS, GEM_STYLE } from './PowerUp.js';
-import { Boss } from './Boss.js';
 import { HUD } from '../ui/HUD.js';
 import { Menu } from '../ui/Menu.js';
 import { GameOver } from '../ui/GameOver.js';
 
 const V = CONFIG.view;
+const T = V.tile;
+const G = CONFIG.grid;
 const WOOD = [0xd9964e, 0x8a5424, 0xc28a4c, 0xf0d09a];
-const FIRE = [0xff4a1a, 0xff8a1e, 0xffd23a, 0xffffff];
-const ZONES = ['lagoon', 'jungle', 'ruins', 'rocky'];
-
-function seeded(i) {
-  let s = (i * 2654435761) >>> 0;
-  s = (s ^ (s >>> 15)) * 2246822519;
-  s = (s ^ (s >>> 13)) >>> 0;
-  return s / 4294967296;
-}
+const ZONE_NAMES = { lagoon: 'LAGOON PIER', jungle: 'JUNGLE', ruins: 'ANCIENT RUINS', rocky: 'ROCKY CANYON' };
 
 export class Game {
   constructor(canvas, uiRoot) {
@@ -31,30 +23,13 @@ export class Game {
     this.params = new URLSearchParams(location.search);
     this.god = this.params.has('god');
 
-    this.renderer = new Renderer(canvas);
+    this.renderer = new TopRenderer(canvas);
     this.audio = new AudioManager();
     this.particles = new ParticleSystem();
-    this.player = new Player();
-    this.world = new World();
     this.powerups = new PowerUps();
-    this.boss = new Boss(this);
     this.score = new ScoreManager();
-    this.collision = new CollisionSystem(this);
-
-    this.player.callbacks = {
-      onJump: () => {
-        this.audio.jump();
-        this.particles.emit(this.playerWorldX() - 10, 6, 6, { color: 0xe8c898, speed: 150, angle: Math.PI, arc: 1.6, life: 0.4, size: 12, gravity: 200 });
-      },
-      onLand: (impact) => {
-        this.audio.land();
-        this.particles.emit(this.playerWorldX(), 6, 10, { color: 0xe8c898, speed: 240, angle: Math.PI / 2, arc: 3, life: 0.5, size: 14, gravity: 100 });
-        if (impact > 1500) this.shake = Math.max(this.shake, 4);
-      },
-      onSlide: () => this.audio.slide(),
-      onLane: () => this.audio.lane(),
-      onSpin: () => this.audio.spin(),
-    };
+    this.grid = new Grid();
+    this.hero = new Hero(this);
 
     const hudHandlers = {
       onPause: () => this.pause(),
@@ -76,7 +51,7 @@ export class Game {
       onClick: () => this.audio.click(),
     });
     this.gameOver = new GameOver(uiRoot, { onRestart: () => this.startRun(), onMainMenu: () => this.toMenu(), onClick: () => this.audio.click() });
-    this.input = new InputManager(canvas, (a, src) => this.handleAction(a, src));
+    this.input = new InputManager(canvas, (a, src, data) => this.handleAction(a, src, data));
 
     const unlock = () => this.audio.unlock();
     window.addEventListener('pointerdown', unlock, true);
@@ -87,27 +62,22 @@ export class Game {
     window.addEventListener('blur', () => {
       if (this.state === 'playing') this.pause();
     });
-    window.addEventListener('resize', () => {
-      this.renderer.resize();
-      this.world.viewW = this.renderer.viewW;
-    });
+    window.addEventListener('resize', () => this.renderer.resize());
 
     this.state = 'menu';
     this.time = 0;
-    this.camX = 0;
-    this.speed = 0;
-    this.speedPx = 0;
+    this.camRow = -V.followRows;
+    this.bestRow = 0;
     this.combo = 0;
     this.comboT = 0;
     this.lives = CONFIG.player.lives;
-    this.slowT = 0;
-    this.runTime = 0;
     this.dyingT = 0;
     this.countT = 0;
     this.ambientT = 0;
-    this.dustT = 0;
     this.shake = 0;
-    this.maskFx = [];
+    this.scroll = 0;
+    this.zone = 'lagoon';
+    this.menuMusicT = 0;
     this.applyQuality();
     this.toMenu();
     this.clock = performance.now();
@@ -122,12 +92,7 @@ export class Game {
     this.renderer.setStyle(store.settings.style || 'painted');
     document.body.classList.toggle('painted', this.renderer.style === 'painted');
     this.renderer.setQuality(store.settings.quality === 'low');
-    this.world.viewW = this.renderer.viewW;
   }
-
-  playerWorldX() { return this.camX + V.playerX; }
-  heroX() { return this.state === 'menu' ? this.renderer.viewW * 0.7 : V.playerX; }
-  heroScale() { return this.state === 'menu' ? 1.55 : 1; }
 
   toggleSound() {
     this.audio.unlock();
@@ -140,18 +105,13 @@ export class Game {
   // ------------------------------------------------------------- states
   resetWorld() {
     this.particles.clear();
-    this.player.reset();
     this.powerups.reset();
-    this.boss.reset();
-    this.nextBossAt = CONFIG.boss.first;
-    this.maskFx.length = 0;
-    this.camX = 0;
-    this.world.reset();
-    this.world.viewW = this.renderer.viewW;
-    this.world.nextX = 700;
-    this.world.ensure(0, CONFIG.speed.start, 0);
-    this.renderer.biome = this.renderer.prevBiome = 'lagoon';
-    this.renderer.fade = 1;
+    this.grid.reset();
+    this.hero.reset();
+    this.camRow = -V.followRows;
+    this.bestRow = 0;
+    this.zone = 'lagoon';
+    this.scroll = 0;
   }
 
   toMenu() {
@@ -159,7 +119,8 @@ export class Game {
     this.gameOver.hide();
     this.hud.hide();
     this.resetWorld();
-    this.player.mode = 'idle';
+    this.hero.x = 2.4;
+    this.hero.facing = -1;
     this.menu.showTitle();
     this.score.reset();
     this.audio.music.play('menu');
@@ -173,19 +134,15 @@ export class Game {
     this.menu.hideSoundBtn();
     this.score.reset();
     this.resetWorld();
-    this.player.mode = 'run';
     this.lives = CONFIG.player.lives;
     this.combo = this.comboT = 0;
-    this.slowT = 0;
-    this.runTime = 0;
     this.shake = 0;
-    this.speed = CONFIG.speed.start * 0.6;
     this.hud.reset(this.score.best);
     this.hud.setBoss(null);
     this.hud.show();
-    this.hud.toast('GO!', '#4ddc44');
+    this.hud.toast('HOP! HOP! HOP!', '#4ddc44');
     this.state = 'playing';
-    this.audio.music.play(this.renderer.biome);
+    this.audio.music.play(this.zone);
     this.audio.music.setIntensity(0);
   }
 
@@ -204,13 +161,14 @@ export class Game {
     this.audio.music.resume();
   }
 
-  die() {
+  die(kind) {
     if (this.state !== 'playing') return;
     this.state = 'dying';
     this.dyingT = 0;
-    this.player.mode = 'dead';
+    this.hero.dead = true;
+    this.hero.buffer.length = 0;
+    this.hero.target = null;
     this.shake = 14;
-    this.audio.hit();
     this.audio.music.stop(0.3);
   }
 
@@ -219,8 +177,8 @@ export class Game {
     const records = this.score.commit();
     this.audio.gameOver();
     if (records.score) {
-      this.player.mode = 'dance';
-      this.player.invuln = 0;
+      this.hero.dead = false;
+      this.hero.pl.mode = 'dance';
       this.audio.fanfare();
     }
     this.hud.hide();
@@ -228,18 +186,18 @@ export class Game {
     this.menuMusicT = 3.2;
   }
 
-  handleAction(a) {
+  handleAction(a, src, data) {
     this.audio.unlock();
-    const p = this.player;
     switch (this.state) {
       case 'playing':
-        if (a === 'jump') p.jump();
-        else if (a === 'slide') p.slide();
-        else if (a === 'spin') p.spinAttack();
-        else if (a === 'jumpRelease') p.jumpRelease();
-        else if (a === 'laneUp') p.moveLane(-1);
-        else if (a === 'laneDown') p.moveLane(1);
-        else if (a === 'pause') this.pause();
+        if (a === 'up') this.hero.request(0, 1);
+        else if (a === 'down') this.hero.request(0, -1);
+        else if (a === 'left') this.hero.request(-1, 0);
+        else if (a === 'right') this.hero.request(1, 0);
+        else if (a === 'tile') {
+          const t = this.renderer.screenToTile(data.x, data.y);
+          this.hero.setTarget(t.col, t.row);
+        } else if (a === 'pause') this.pause();
         break;
       case 'paused':
         if (a === 'pause') {
@@ -266,27 +224,12 @@ export class Game {
     this.renderer.render(this, dt);
   }
 
-  baseSpeed() {
-    const S = CONFIG.speed;
-    return S.start + (S.max - S.start) * Math.min(1, this.score.distance / S.distanceToMax);
-  }
-
-  // zones: the lagoon pier first, then a pseudo-random sequence that never repeats back-to-back
-  biomeAt(distance) {
-    const idx = Math.floor(distance / CONFIG.difficulty.biomeLength);
-    const pick = (i) => {
-      if (i <= 0) return 'lagoon';
-      const r = seeded(i);
-      return r < 0.3 ? 'lagoon' : r < 0.55 ? 'jungle' : r < 0.8 ? 'ruins' : 'rocky';
-    };
-    let b = pick(idx);
-    if (idx > 0 && b === pick(idx - 1)) b = ZONES[(ZONES.indexOf(b) + 1 + Math.floor(seeded(idx + 7) * 3)) % ZONES.length];
-    return b;
+  get diff() {
+    return Math.min(1, this.bestRow / 170);
   }
 
   update(dt) {
     this.time += dt;
-    const p = this.player;
     if (this.state === 'countdown') {
       this.countT -= dt;
       const n = Math.ceil(this.countT / 0.6);
@@ -298,8 +241,8 @@ export class Game {
     } else if (this.state === 'playing' || this.state === 'dying') {
       this.step(dt);
     } else if (this.state === 'menu' || this.state === 'gameover') {
-      p.update(dt, 0, 0);
-      this.world.update(dt, this.worldCtx(0));
+      this.grid.time += dt;
+      this.hero.update(dt);
       this.particles.update(dt);
       if (this.state === 'menu') this.ambient(dt);
       if (this.state === 'gameover' && this.menuMusicT > 0) {
@@ -307,7 +250,6 @@ export class Game {
         if (this.menuMusicT <= 0) this.audio.music.play('menu');
       }
     }
-    // screen shake decays
     this.shake = Math.max(0, this.shake - dt * 30);
     const sh = store.settings.shake ? this.shake : 0;
     this.renderer.shakeX = sh ? (Math.random() - 0.5) * sh : 0;
@@ -317,323 +259,237 @@ export class Game {
   ambient(dt) {
     this.ambientT -= dt;
     if (this.ambientT > 0) return;
-    this.ambientT = 0.15;
-    this.particles.emit(this.camX + Math.random() * this.renderer.viewW, 60 + Math.random() * 300, 1, {
-      colors: [0xfff2a0, 0xb8ff90], speed: 25, life: 3, size: 6, gravity: -20, spread: 0,
+    this.ambientT = 0.18;
+    this.particles.lane = (this.camRow + 1 + Math.random() * 6) * T;
+    this.particles.emit((Math.random() - 0.5) * this.renderer.viewW, 40 + Math.random() * 120, 1, {
+      colors: [0xfff2a0, 0xb8ff90], speed: 20, life: 3, size: 6, gravity: -16, spread: 0,
     });
-  }
-
-  worldCtx(magnet) {
-    return {
-      camX: this.camX, speedPx: this.speedPx, player: this.player, playerX: this.playerWorldX(), time: this.time,
-      magnet,
-      cb: { tick: () => this.audio.tick(), explode: (c) => this.explodeCrate(c) },
-    };
   }
 
   step(dt) {
-    const p = this.player;
     const dying = this.state === 'dying';
     if (dying) this.dyingT += dt;
-    this.runTime += dt;
-    this.slowT = Math.max(0, this.slowT - dt / 2.2);
+    const hero = this.hero;
+    this.grid.time += dt;
+    hero.update(dt);
 
-    const S = CONFIG.speed;
-    let speed = this.baseSpeed();
-    speed *= 1 - (1 - CONFIG.player.hitSlowdown) * this.slowT;
-    speed *= Math.min(1, 0.55 + (this.runTime / 1.6) * 0.45);
-    if (dying) speed *= Math.max(0, 1 - this.dyingT / 0.7);
-    if (p.falling) speed = 0;
-    this.speed = speed;
-    this.speedPx = speed * V.pxPerM;
-
-    const ground = this.collision.groundHeight(p, dt);
-    p.update(dt, speed, ground);
-    this.camX += this.speedPx * dt;
-    if (!dying && !p.falling) this.score.addDistance(speed * dt);
-
-    const biome = this.biomeAt(this.score.distance + 160);
-    if (this.renderer.setBiome(biome)) this.audio.music.play(biome);
-    this.audio.music.setIntensity((speed - S.start) / (S.max - S.start));
-    this.particles.lane = p.laneF;
-    if (!dying && !this.boss.active && this.score.distance >= this.nextBossAt) {
-      this.boss.begin();
-      this.nextBossAt = Infinity; // re-armed when the fight ends
+    // camera follows forward progress and creeps if you stand still
+    const tgt = Math.max(this.camRow, hero.rowF - V.followRows);
+    this.camRow += (tgt - this.camRow) * Math.min(1, dt * 7);
+    this.scroll = 0;
+    if (!dying && hero.idle > G.creepAfter && !hero.hop) {
+      this.scroll = Math.min(G.creepMax, G.creepStart + this.diff * 0.55);
+      this.camRow += this.scroll * dt;
     }
-    this.boss.update(dt);
-    this.hud.setBoss(this.boss.active && this.boss.state !== 'dead' ? { hp: this.boss.hp, max: this.boss.maxHp } : null);
-    this.world.ensure(this.camX, Math.max(speed, S.start * 0.8), this.score.distance);
-    const magnet = this.powerups.has('magnet') ? CONFIG.powerups.magnet.radius : 0;
-    this.world.update(dt, this.worldCtx(magnet));
+    if (!dying && !hero.dead && hero.rowF - this.camRow < G.hawkMargin) this.hawk();
+    this.grid.prune(Math.floor(this.camRow));
+
+    // zone changes
+    const zone = zoneAt(Math.round(this.camRow) + 4);
+    if (zone !== this.zone) {
+      this.zone = zone;
+      this.hud.toast(ZONE_NAMES[zone], '#ffffff', true);
+      this.audio.music.play(zone);
+    }
+    this.audio.music.setIntensity(Math.min(1, this.bestRow / 150));
+
+    // magnet
+    if (!dying && this.powerups.has('magnet')) this.magnetPull();
+
     this.powerups.update(dt, (k) => {
       this.audio.powerdown();
       this.hud.toast(`${POWERUPS[k].label} ENDED`, '#ffffff', true);
-      if (k === 'mask') this.player.invuln = Math.max(this.player.invuln, 0.8);
+      if (k === 'mask') hero.invuln = Math.max(hero.invuln, 0.8);
     });
-
-    if (!dying) this.collision.update(p, this.callbacks());
-    if (p.falling && p.y < -520) this.fellOut();
-    if (this.state === 'dying' && this.dyingT > 1.5) this.finishRun();
-
     if (this.comboT > 0) {
       this.comboT -= dt;
       if (this.comboT <= 0) this.combo = 0;
     }
-    if (p.mode === 'run' && p.grounded && !p.sliding) {
-      this.dustT -= dt;
-      if (this.dustT <= 0) {
-        this.dustT = 0.08;
-        this.particles.emit(this.playerWorldX() - 18, 8, 1, { color: 0xe8c898, speed: 90, angle: Math.PI, arc: 1.2, life: 0.45, size: 12, gravity: 120 });
-      }
-    } else if (p.sliding) {
-      this.particles.emit(this.playerWorldX() - 20, 10, 1, { colors: [0xe8c898, 0xffffff], speed: 140, angle: Math.PI, arc: 1, life: 0.4, size: 12, gravity: 120 });
-    }
-
-    for (let i = this.maskFx.length - 1; i >= 0; i--) {
-      const m = this.maskFx[i];
-      m.life -= dt;
-      m.vy -= 2400 * dt;
-      m.x += m.vx * dt - this.speedPx * dt * 0.3;
-      m.y += m.vy * dt;
-      m.rot += dt * 14;
-      if (m.life <= 0) this.maskFx.splice(i, 1);
-    }
     this.particles.update(dt);
+    if (dying && this.dyingT > 1.5) this.finishRun();
+
     this.hud.update(dt, {
       score: this.score.score, best: this.score.best, distance: this.score.distance, fruit: this.score.fruit,
-      gems: this.score.gems, gemTypes: this.score.gemTypes, level: this.score.level, speed,
-      speedRatio: Math.max(0, Math.min(1, (speed - S.start) / (S.max - S.start))), lives: this.lives, timers: this.powerups.timers, masks: this.powerups.masks, crates: this.score.crates, cratesTotal: this.world.cratesTotal,
+      gems: this.score.gems, gemTypes: this.score.gemTypes, level: this.score.level, speed: this.scroll,
+      speedRatio: Math.min(1, this.bestRow / 170), lives: this.lives, timers: this.powerups.timers,
+      masks: this.powerups.masks, crates: this.score.crates, cratesTotal: this.grid.cratesTotal, zone: ZONE_NAMES[this.zone],
     });
   }
 
-  // ------------------------------------------------------ collision callbacks
-  callbacks() {
-    if (this._cb) return this._cb;
-    this._cb = {
-      hit: (o) => this.damage(o.kind),
-      smash: (c) => this.smashCrate(c),
-      smashTop: (c) => { this.smashCrate(c); this.player.stomp(820); },
-      deflect: (h) => this.deflectCoconut(h),
-      bounce: (c) => this.bounceCrate(c),
-      explode: (c) => this.explodeCrate(c),
-      collect: (it) => this.collect(it),
-      powerup: (it) => this.pickPowerup(it),
-      enemyKill: (e, how) => this.killEnemy(e, how),
-      enemyHit: (e) => this.damage(e.kind),
-      nearMiss: (e) => {
-        this.score.add(CONFIG.scoring.nearMiss);
-        this.score.nearMisses++;
-        this.audio.nearMiss();
-        this.particles.pop(this.playerWorldX() + 40, this.player.y + 150, `+${CONFIG.scoring.nearMiss}`, '#35e0d0');
-      },
-      fall: () => {
-        this.audio.fall();
-        this.player.fallGap = this.world.gapAt(this.playerWorldX(), 0) || this.world.gapAt(this.playerWorldX() + 40, 0);
-      },
-    };
-    return this._cb;
-  }
-
-  sameLane(e) {
-    return Math.abs((e.lf ?? e.lane) - this.player.laneF) < 0.62;
-  }
-
-  damage(source) {
-    const p = this.player;
-    if (this.state !== 'playing' || p.invuln > 0 || p.falling || this.god) return;
-    const px = this.playerWorldX();
-    const cy = p.y + p.h / 2;
-    this.particles.lane = p.laneF;
-    const res = this.powerups.consumeMask();
-    if (res === 'immune') return; // mask power: nothing can hurt you
-    if (res === 'absorbed') {
-      p.invuln = 1.3;
-      this.audio.maskBreak();
-      this.particles.ring(px, cy, 0xffd23a, 70, 0.5);
-      this.particles.stars(px, cy + 30, 12, [0xffd23a, 0xff8a1e, 0xffffff], 460);
-      this.maskFx.push({ x: px - 70, y: cy + 40, vx: -260, vy: 700, rot: 0, life: 1.1, lane: p.laneF });
-      this.shake = 8;
-      this.hud.flash('white');
-      this.hud.toast('MASK LOST!', '#ffd23a', true);
-      return;
+  // ----------------------------------------------------------- events
+  onLand(hero) {
+    if (hero.row > this.bestRow) {
+      this.score.addDistance(hero.row - this.bestRow);
+      this.bestRow = hero.row;
     }
-    this.lives--;
-    p.hit();
-    this.slowT = 1;
-    this.audio.hit();
-    this.shake = 16;
-    this.hud.flash('hit');
-    this.particles.stars(px + 20, cy, 10, [0xffd23a, 0xffffff, 0xff8a1e]);
-    this.particles.pop(px + 30, p.y + 160, 'OUCH!', '#ff6a4a');
-    this.combo = 0;
-    if (this.lives <= 0) this.die();
-    else if (source === 'boulder') this.hud.toast('BOULDER!', '#ff5a3a', true);
+    this.particles.lane = hero.row * T;
+    this.particles.emit(hero.x * T, 4, 4, { color: 0xe8d8a8, speed: 120, angle: Math.PI / 2, arc: 3, life: 0.35, size: 9, gravity: 100 });
   }
 
-  fellOut() {
-    const p = this.player;
-    this.lives--;
-    this.hud.flash('hit');
-    if (this.lives <= 0) {
-      p.falling = false;
-      this.die();
-      return;
-    }
-    const gap = p.fallGap;
-    const landX = gap ? gap.x1 + 150 : this.playerWorldX() + 300;
-    this.camX = landX - V.playerX;
-    p.y = 80;
-    p.vy = 0;
-    p.falling = false;
-    p.grounded = false;
-    p.invuln = 2.2;
-    p.hitTimer = 0.4;
-    this.slowT = 1;
-    this.shake = 10;
-    this.audio.hit();
-    this.hud.toast('WATCH YOUR STEP!', '#ff5a3a', true);
+  collectAt(row, hero) {
+    const c = hero.col;
+    const it = row.items.get(c);
+    if (!it || it.taken || Math.abs(hero.x - c) > 0.6) return;
+    it.taken = true;
+    this.giveItem(it.kind, c, row.r);
   }
 
-  smashCrate(c) {
-    if (!c.active) return;
-    this.world.crates.release(c);
-    const cy = c.y0 + c.h / 2;
-    this.particles.lane = c.lane;
-    this.particles.chunks(c.x, cy, 14, c.kind === 'mystery' ? [0xb583e8, 0x6a3aa8, 0xffd23a] : WOOD, 560);
-    this.particles.stars(c.x, cy, 6, [0xffd23a, 0xffffff]);
-    this.particles.pop(c.x, cy + 70, ['POW!', 'BAM!', 'SMASH!'][(Math.random() * 3) | 0]);
-    this.audio.crate();
-    this.shake = Math.max(this.shake, 4);
-    this.score.crates++;
-    if (c.kind === 'mystery') {
-      this.score.add(CONFIG.scoring.mystery);
-      this.mysteryReward(c);
-    } else {
-      this.score.add(CONFIG.scoring.crate);
-      this.world.pop(c.x, cy, CONFIG.crates.fruitPerCrate, c.lane);
+  magnetPull() {
+    const R = CONFIG.powerups.magnet.radius;
+    const hero = this.hero;
+    for (let r = hero.row - 2; r <= hero.row + 3; r++) {
+      const row = this.grid.row(r);
+      for (const [c, it] of row.items) {
+        if (it.taken || it.kind !== 'fruit') continue;
+        const dx = c - hero.x, dy = r - hero.row;
+        if (dx * dx + dy * dy <= R * R) {
+          it.taken = true;
+          this.giveItem('fruit', c, r);
+        }
+      }
     }
   }
 
-  mysteryReward(c) {
-    const r = Math.random();
-    const y = c.y0 + c.h / 2;
-    if (r < 0.5) {
-      this.world.pop(c.x, y, 8, c.lane);
-      this.hud.toast('FRUIT FRENZY!', '#ff8a1e', true);
-    } else if (r < 0.68) {
-      const type = ['magnet', 'mask', 'multiplier'][(Math.random() * 3) | 0];
-      this.world.popItem(type, c.x, y, c.lane);
-      this.hud.toast(`${POWERUPS[type].label}!`, POWERUPS[type].css, true);
-    } else {
-      const kind = r < 0.82 ? 'green' : r < 0.9 ? 'purple' : r < 0.96 ? 'blue' : 'relic';
-      this.world.popItem(kind, c.x, y, c.lane);
-    }
-    this.particles.lane = c.lane;
-    this.particles.ring(c.x, y, 0xffd23a, 30, 0.4);
-  }
-
-  bounceCrate(c) {
-    c.squash = 0.35;
-    this.particles.lane = c.lane;
-    this.player.bounce(CONFIG.crates.bounceVelocity);
-    this.audio.bounce();
-    this.shake = Math.max(this.shake, 4);
-    this.score.add(CONFIG.scoring.crate);
-    this.score.crates++;
-    this.world.pop(c.x, c.y0 + c.h, 3, c.lane);
-    this.particles.ring(c.x, c.y0 + c.h, 0x7cff5a, 40, 0.45);
-    this.particles.emit(c.x, c.y0 + c.h, 10, { colors: [0x7cff5a, 0xffffff], speed: 360, angle: Math.PI / 2, arc: 2.4, life: 0.5, size: 10 });
-    this.particles.pop(c.x, c.y0 + c.h + 80, 'BOING!', '#7cff5a');
-  }
-
-  explodeCrate(c) {
-    if (!c.active) return;
-    this.world.crates.release(c);
-    const cy = c.y0 + c.h / 2;
+  giveItem(kind, c, r) {
     const P = this.particles;
-    P.lane = c.lane;
-    P.emit(c.x, cy, 34, { colors: FIRE, speed: 520, up: 200, life: 0.7, size: 30, gravity: 300, grow: 0 });
-    P.emit(c.x, cy + 20, 14, { colors: [0x444444, 0x666666], speed: 160, up: 300, life: 1.1, size: 34, gravity: -80 });
-    P.ring(c.x, cy, 0xffd23a, 40, 0.45);
-    P.chunks(c.x, cy, 16, [0xee3a24, 0xa81c0e, 0x4a0a04, 0xf3e6c8], 700);
-    P.stars(c.x, cy, 8, [0xffd23a, 0xff8a1e, 0xffffff], 520);
-    P.pop(c.x, cy + 110, 'BOOM!', '#ff8a1e');
-    this.audio.explosion();
-    this.shake = 18;
-    const pl = this.player;
-    const C = CONFIG.crates;
-    if (this.sameLane(c) && Math.abs(this.playerWorldX() - c.x) < C.tntBlastHalfWidth + pl.hw && pl.y < C.tntBlastHeight) this.damage('tnt');
-  }
-
-  collect(it) {
-    if (!it.active) return;
-    const P = this.particles;
-    P.lane = it.lf;
-    if (it.kind === 'fruit') {
-      this.world.items.release(it);
+    P.lane = r * T;
+    const x = c * T;
+    if (kind === 'fruit') {
       const mult = this.powerups.has('multiplier') ? CONFIG.powerups.multiplier.factor : 1;
       this.score.addFruit(1, mult);
       this.combo++;
       this.comboT = 0.6;
       this.audio.fruit(this.combo);
-      P.emit(it.x, it.y, 6, { colors: [0xff8a1e, 0xffd23a, 0x4ddc44], speed: 220, life: 0.4, size: 9, gravity: 600 });
+      P.emit(x, 34, 6, { colors: [0xff8a1e, 0xffd23a, 0x4ddc44], speed: 220, life: 0.4, size: 9, gravity: 600 });
+    } else if (GEM_STYLE[kind]) {
+      const style = GEM_STYLE[kind];
+      this.score.addGem(kind);
+      this.audio.gem(kind);
+      P.stars(x, 40, kind === 'relic' ? 16 : 10, style.particle, 420);
+      P.ring(x, 34, style.color, 26, 0.5);
+      this.hud.toast(`${style.label}  +${CONFIG.scoring.gem[kind]}`, '#' + style.color.toString(16).padStart(6, '0'));
+      this.hud.flash('white');
+    } else {
+      const res = this.powerups.activate(kind);
+      const info = POWERUPS[kind];
+      P.ring(x, 34, info.color, 30, 0.5);
+      P.stars(x, 40, 8, [info.color, 0xffffff], 380);
+      if (kind === 'mask') {
+        this.audio.maskGet(res === 'power');
+        if (res === 'power') this.hud.toast('MASK POWER! INVINCIBLE', '#ffd23a');
+        else this.hud.toast(`MASK ${this.powerups.masks}/${CONFIG.powerups.mask.needed}`, '#ffd23a', true);
+      } else {
+        this.audio.powerup();
+        this.hud.toast(`${info.label}!`, info.css);
+      }
+    }
+  }
+
+  // hop into a breakable crate
+  smashTile(row, c) {
+    const t = row.tiles.get(c);
+    if (!t) return;
+    row.tiles.delete(c);
+    const kind = t.kind.slice(6);
+    const P = this.particles;
+    P.lane = row.r * T;
+    const x = c * T;
+    P.chunks(x, 40, 12, kind === 'mystery' ? [0xb583e8, 0x6a3aa8, 0xffd23a] : WOOD, 480);
+    P.stars(x, 40, 5, [0xffd23a, 0xffffff]);
+    P.pop(x, 90, ['POW!', 'BAM!', 'SMASH!'][(Math.random() * 3) | 0]);
+    this.audio.crate();
+    this.shake = Math.max(this.shake, 3);
+    this.score.crates++;
+    if (kind === 'mystery') {
+      this.score.add(CONFIG.scoring.mystery);
+      const r = Math.random();
+      if (r < 0.45) {
+        const mult = this.powerups.has('multiplier') ? 2 : 1;
+        this.score.addFruit(8, mult);
+        this.hud.toast('FRUIT FRENZY!', '#ff8a1e', true);
+      } else if (r < 0.7) this.giveItem('mask', c, row.r);
+      else if (r < 0.88) this.giveItem('green', c, row.r);
+      else this.giveItem(r < 0.96 ? 'purple' : 'blue', c, row.r);
+    } else {
+      this.score.add(CONFIG.scoring.crate);
+      const mult = this.powerups.has('multiplier') ? 2 : 1;
+      this.score.addFruit(CONFIG.crates.fruitPerCrate, mult);
+      this.audio.fruit(3);
+    }
+  }
+
+  // something dangerous touched the hero
+  hurt(kind) {
+    const hero = this.hero;
+    if (this.state !== 'playing' || hero.invuln > 0 || hero.dead || this.god) return;
+    const P = this.particles;
+    P.lane = hero.row * T;
+    const x = hero.x * T;
+    const res = this.powerups.consumeMask();
+    if (res === 'immune') return;
+    if (res === 'absorbed') {
+      hero.invuln = 1.6;
+      this.audio.maskBreak();
+      P.ring(x, 50, 0xffd23a, 40, 0.5);
+      P.stars(x, 60, 12, [0xffd23a, 0xff8a1e, 0xffffff], 420);
+      this.shake = 8;
+      this.hud.flash('white');
+      this.hud.toast('MASK LOST!', '#ffd23a', true);
+      // the mask pushes you out of harm's way when you were in the water
+      if (kind === 'water' || kind === 'drift') this.rescue();
       return;
     }
-    const style = GEM_STYLE[it.kind];
-    const pts = CONFIG.scoring.gem[it.kind];
-    this.world.items.release(it);
-    this.score.addGem(it.kind);
-    this.audio.gem(it.kind);
-    P.stars(it.x, it.y, it.kind === 'relic' ? 16 : 10, style.particle, 460);
-    P.ring(it.x, it.y, style.color, 30, 0.5);
-    this.hud.toast(`${style.label}  +${pts}`, '#' + style.color.toString(16).padStart(6, '0'));
-    this.hud.flash('white');
-    this.shake = Math.max(this.shake, 3);
-  }
-
-  deflectCoconut(h) {
-    if (h.deflected) return;
-    h.deflected = true;
-    this.audio.stomp();
-    this.particles.lane = h.lane;
-    this.particles.stars(h.x, 60, 6, [0xffd23a, 0xffffff], 380);
-    this.particles.pop(h.x, 130, 'BAT!', '#ffd23a');
-    this.shake = Math.max(this.shake, 5);
-  }
-
-  killEnemy(e, how) {
-    if (!e.active) return;
-    const x = e.x, y = e.y0 + e.h / 2;
-    this.world.enemies.release(e);
-    const P = this.particles;
-    P.lane = e.lane;
-    P.stars(x, y, 8, [0xffd23a, 0xffffff, 0xff8a1e], 420);
-    P.emit(x, y, 8, { colors: [0xe8c898, 0xffffff], speed: 260, life: 0.5, size: 14, gravity: 200 });
-    P.pop(x, y + 70, how === 'stomp' ? 'BOP!' : how === 'spin' ? 'WHAM!' : 'POW!', how === 'stomp' ? '#7cff5a' : '#ffd23a');
-    this.score.add(CONFIG.scoring.enemy);
-    this.score.enemies = (this.score.enemies || 0) + 1;
-    this.shake = Math.max(this.shake, 5);
-    if (how === 'stomp') {
-      this.audio.stomp();
-      this.player.stomp();
-    } else this.audio.crate();
-  }
-
-  pickPowerup(it) {
-    const type = it.kind;
-    this.world.items.release(it);
-    const r = this.powerups.activate(type);
-    this.particles.lane = it.lf;
-    const c = POWERUPS[type];
-    this.particles.ring(it.x, it.y, c.color, 40, 0.55);
-    this.particles.stars(it.x, it.y, 10, [c.color, 0xffffff], 420);
-    if (type === 'mask') {
-      this.audio.maskGet(r === 'power');
-      if (r === 'power') this.hud.toast('MASK POWER! INVINCIBLE', '#ffd23a');
-      else this.hud.toast(`MASK ${this.powerups.masks}/${CONFIG.powerups.mask.needed}`, '#ffd23a', true);
+    this.lives--;
+    this.combo = 0;
+    this.shake = 14;
+    this.hud.flash('hit');
+    if (kind === 'water' || kind === 'drift') {
+      this.audio.splash();
+      P.emit(x, 20, 22, { colors: [0xbfe4ff, 0x5ab4ff, 0xffffff], speed: 360, up: 300, life: 0.7, size: 12, gravity: 900 });
+      P.ring(x, 8, 0xffffff, 20, 0.5);
+      P.pop(x, 110, 'SPLASH!', '#7fd0ff');
     } else {
-      this.audio.powerup();
-      this.hud.toast(`${c.label}!`, c.css);
+      this.audio.squash();
+      this.audio.hit();
+      P.stars(x, 50, 12, [0xffd23a, 0xffffff, 0xff8a1e], 420);
+      P.pop(x, 110, kind === 'train' ? 'WHOOSH!' : 'SPLAT!', '#ff6a4a');
     }
+    if (this.lives <= 0) {
+      hero.pl.hitTimer = 1;
+      this.die(kind);
+    } else {
+      this.rescue();
+    }
+  }
+
+  // put the hero back on the last safe grass tile (or the nearest one still on screen)
+  rescue() {
+    const hero = this.hero, grid = this.grid;
+    let { x, row } = hero.lastSafe;
+    const minRow = Math.ceil(this.camRow + 0.9);
+    if (row < minRow) {
+      row = minRow;
+      while (grid.row(row).type !== 'grass') row++;
+      const tiles = grid.row(row).tiles;
+      x = 0;
+      for (let d = 0; d <= G.half; d++) {
+        if (!tiles.has(Math.round(hero.x) + d) && Math.abs(Math.round(hero.x) + d) <= G.half) { x = Math.round(hero.x) + d; break; }
+        if (!tiles.has(Math.round(hero.x) - d) && Math.abs(Math.round(hero.x) - d) <= G.half) { x = Math.round(hero.x) - d; break; }
+      }
+    }
+    hero.respawn(x, row);
+    hero.lastSafe = { x, row };
+  }
+
+  hawk() {
+    if (this.state !== 'playing') return;
+    this.audio.hawk();
+    this.hud.toast('A HAWK GRABBED YOU!', '#ff6a4a');
+    this.hud.flash('hit');
+    const P = this.particles;
+    P.lane = this.hero.row * T;
+    P.emit(this.hero.x * T, 60, 18, { colors: [0xd8c8a8, 0xffffff, 0x8a6a4a], speed: 300, up: 200, life: 0.9, size: 12, gravity: 300 });
+    this.lives = 0;
+    this.die('hawk');
   }
 }

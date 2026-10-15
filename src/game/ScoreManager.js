@@ -23,7 +23,7 @@ export class ScoreManager {
   }
 
   get level() {
-    return Math.min(CONFIG.difficulty.maxLevel, 1 + Math.floor(this.distance / CONFIG.speed.levelEvery));
+    return 1 + Math.floor(this.distance / CONFIG.grid.levelRows);
   }
 
   addDistance(d) {

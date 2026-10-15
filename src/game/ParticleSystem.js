@@ -1,4 +1,4 @@
-import { CONFIG, laneY } from '../config/settings.js';
+import { CONFIG } from '../config/settings.js';
 
 // Fixed-size 2D particle pool: dots, stars, wood/stone chunks, rings, text pops.
 // Positions are world x and height-above-ground y.
@@ -83,12 +83,13 @@ export class ParticleSystem {
     }
   }
 
+  // positions: x = world px, lane = planar forward coordinate (world px), y = height. r supplies sx()/sy().
   draw(ctx, camX, r) {
     for (const p of this.list) {
       if (p.life <= 0) continue;
       const t = Math.max(0, p.life / p.max);
-      const sx = r.snap(p.x - camX);
-      const sy = r.snap(laneY(p.lane) - p.y);
+      const sx = r.snap(r.sx(p.x));
+      const sy = r.snap(r.sy(p.lane) - p.y);
       ctx.save();
       ctx.translate(sx, sy);
       ctx.globalAlpha = Math.min(1, t * 1.8);

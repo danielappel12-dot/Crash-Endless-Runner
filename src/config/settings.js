@@ -2,57 +2,48 @@
 // World units are virtual pixels on a 720px-tall stage; "height" means pixels above the ground line.
 
 export const CONFIG = {
-  // Three depth lanes: feet y of lane 0 (back), 1 (middle), 2 (front). Ground band starts at horizonY.
-  view: { H: 720, minW: 960, maxW: 1700, horizonY: 430, laneY: [490, 580, 670], laneGap: 90, playerX: 300, pxPerM: 30, pixel: 0.32 },
+  // Top-down hopping view. One tile = 80 virtual px; rows scroll downwards as you move forward.
+  view: { H: 720, minW: 960, maxW: 1700, tile: 80, baseY: 656, followRows: 2.6, pixel: 0.32 },
 
-  player: {
-    jumpVelocity: 1300, // px/s
-    gravity: 3700, // px/s^2  -> apex ~228px, air time ~0.7s
-    fastFall: 1900,
-    slideDuration: 0.75,
-    coyoteTime: 0.1,
-    inputBuffer: 0.14,
-    halfWidth: 24, // hit box
-    standHeight: 118,
-    slideHeight: 54,
-    jumpCut: 0.7, // releasing jump early caps upward speed at this fraction
-    spinDuration: 0.42,
-    spinCooldown: 0.6,
-    spinReach: 125,
-    stompBounce: 950,
-    lives: 3,
-    hitInvuln: 1.8,
-    hitStagger: 0.6,
-    hitSlowdown: 0.55,
+  grid: {
+    half: 4, // playable columns are -half..+half
+    hopTime: 0.15,
+    hopHeight: 42,
+    heroHalfWidth: 0.3, // tiles
+    spanTiles: 30, // moving lanes wrap around this width
+    zoneLength: 48, // rows per zone
+    creepAfter: 2.2, // seconds standing still before the camera starts creeping
+    creepStart: 0.3, // rows/s
+    creepMax: 0.85,
+    hawkMargin: 0.35, // hero this close to the bottom edge gets grabbed
+    rowsAhead: 16,
+    levelRows: 40,
   },
 
-  speed: { start: 15, max: 34, distanceToMax: 2600, levelEvery: 250 }, // m/s, metres
+  // kept for the hero's pose animation
+  player: {
+    jumpVelocity: 1300, gravity: 3700, fastFall: 1900, slideDuration: 0.75, coyoteTime: 0.1, inputBuffer: 0.14,
+    jumpCut: 0.7, spinDuration: 0.42, spinCooldown: 0.6, spinReach: 125, stompBounce: 950,
+    halfWidth: 24, standHeight: 118, slideHeight: 54,
+    lives: 3, hitInvuln: 2, hitStagger: 0.7, hitSlowdown: 0.55,
+  },
 
-  difficulty: { maxLevel: 12, boulderFromLevel: 3, specialBiomeBase: 0.25, specialBiomePerLevel: 0.07, specialBiomeMax: 0.8, biomeLength: 450 },
+  speed: { start: 15, max: 34, distanceToMax: 2600, levelEvery: 40 },
 
   scoring: {
-    perMetre: 1, fruit: 10, crate: 50, mystery: 100, nearMiss: 25,
+    perMetre: 5, // points per new row reached
+    fruit: 10, crate: 50, mystery: 100, nearMiss: 25,
     gem: { green: 500, purple: 1000, blue: 2000, relic: 5000 },
     enemy: 100,
   },
 
   powerups: {
-    magnet: { duration: 9, radius: 330 },
+    magnet: { duration: 9, radius: 2.4 }, // tiles
     mask: { duration: 12, needed: 3 }, // 3 masks collected = invincibility for `duration` seconds
     multiplier: { duration: 10, factor: 2 },
   },
 
-  crates: {
-    size: 84, tntFuse: 0.9, tntBlastHalfWidth: 190, tntBlastHeight: 130,
-    bounceVelocity: 1650, fruitPerCrate: 5,
-  },
-
-  boulder: { speed: 520, warnDistance: 1000, triggerDistance: 350 },
-
-  boss: {
-    first: 650, every: 1500, baseHp: 3, coconutSpeed: 330, deflectSpeed: 1050,
-    windup: 0.95, idle: 0.7, recover: 1.0, stun: 1.5, bossX: 190, // screen px from the right edge
-  },
+  crates: { size: 84, fruitPerCrate: 4 },
   particles: { max: 420 },
 };
 
@@ -87,11 +78,3 @@ export function saveStore(s) {
 
 export const store = loadStore();
 export const persist = () => saveStore(store);
-
-// feet y (virtual px) for a (possibly fractional) lane index
-export function laneY(l) {
-  const a = CONFIG.view.laneY;
-  const i = Math.max(0, Math.min(1.9999, l));
-  const k = Math.floor(i);
-  return a[k] + (a[k + 1] - a[k]) * (i - k);
-}

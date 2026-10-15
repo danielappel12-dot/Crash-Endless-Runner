@@ -1,14 +1,16 @@
 import { store } from '../config/settings.js';
 
-// Normalises keyboard, swipe and on-screen buttons into named actions:
-// left, right, jump, slide, pause, restart.
+// Keyboard, mouse and touch input for the hopper:
+//  arrows / WASD            hop one tile
+//  click / tap a tile       hop toward it (keeps walking across safe grass rows)
+//  swipe                    hop in the swipe direction
+// actions: up, down, left, right, tile{x,y}, pause, restart, confirm
 
 const KEYMAP = {
-  ArrowUp: 'laneUp', KeyW: 'laneUp',
-  ArrowDown: 'laneDown', KeyS: 'laneDown',
-  Space: 'jump', ArrowRight: 'jump', KeyD: 'jump',
-  ArrowLeft: 'slide', KeyA: 'slide', ShiftLeft: 'slide', ShiftRight: 'slide',
-  KeyJ: 'spin', KeyE: 'spin', KeyX: 'spin', ControlLeft: 'spin', ControlRight: 'spin',
+  ArrowUp: 'up', KeyW: 'up', Space: 'up',
+  ArrowDown: 'down', KeyS: 'down',
+  ArrowLeft: 'left', KeyA: 'left',
+  ArrowRight: 'right', KeyD: 'right',
   Escape: 'pause', KeyP: 'pause',
   KeyR: 'restart',
   Enter: 'confirm',
@@ -17,49 +19,38 @@ const KEYMAP = {
 export class InputManager {
   constructor(target, onAction) {
     this.onAction = onAction;
-    this.held = new Set();
     window.addEventListener('keydown', (e) => {
       const a = KEYMAP[e.code];
       if (!a) return;
-      if (['jump', 'slide', 'laneUp', 'laneDown', 'spin'].includes(a) || e.code === 'Space') e.preventDefault();
-      if (e.repeat && a !== 'slide') return;
-      this.held.add(a);
+      if (['up', 'down', 'left', 'right'].includes(a)) e.preventDefault();
+      if (e.repeat && !['up', 'down', 'left', 'right'].includes(a)) return;
       this.onAction(a, 'key');
     });
-    window.addEventListener('keyup', (e) => {
-      const a = KEYMAP[e.code];
-      if (a) this.held.delete(a);
-      if (a === 'jump') this.onAction('jumpRelease', 'key');
-    });
 
-    // touch / mouse on the canvas: swipe up/down = change lane, tap right half = jump,
-    // tap left half = slide. Mouse click = jump.
-    let sx = 0, sy = 0, sid = null, fired = false;
-    const threshold = () => 28 / Math.max(0.4, store.settings.swipe);
+    let sx = 0, sy = 0, sid = null, moved = false;
+    const threshold = () => 26 / Math.max(0.4, store.settings.swipe);
     target.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse') {
-        if (e.button === 0) this.onAction('jump', 'mouse');
+        if (e.button === 0) this.onAction('tile', 'mouse', { x: e.clientX, y: e.clientY });
         return;
       }
       sid = e.pointerId;
       sx = e.clientX;
       sy = e.clientY;
-      fired = false;
+      moved = false;
     });
     target.addEventListener('pointermove', (e) => {
-      if (e.pointerId !== sid || fired) return;
-      const dy = e.clientY - sy;
-      if (Math.abs(dy) < threshold() || Math.abs(dy) < Math.abs(e.clientX - sx)) return;
-      fired = true;
-      this.onAction(dy < 0 ? 'laneUp' : 'laneDown', 'touch');
+      if (e.pointerId !== sid || moved) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) < threshold() && Math.abs(dy) < threshold()) return;
+      moved = true;
+      if (Math.abs(dx) > Math.abs(dy)) this.onAction(dx < 0 ? 'left' : 'right', 'touch');
+      else this.onAction(dy < 0 ? 'up' : 'down', 'touch');
     });
     target.addEventListener('pointerup', (e) => {
-      if (e.pointerType === 'mouse') this.onAction('jumpRelease', 'mouse');
       if (e.pointerId !== sid) return;
       sid = null;
-      if (!fired && Math.hypot(e.clientX - sx, e.clientY - sy) < threshold()) {
-        this.onAction(e.clientX > window.innerWidth / 2 ? 'jump' : 'slide', 'touch');
-      }
+      if (!moved) this.onAction('tile', 'touch', { x: e.clientX, y: e.clientY });
     });
     target.addEventListener('pointercancel', () => { sid = null; });
     target.addEventListener('contextmenu', (e) => e.preventDefault());

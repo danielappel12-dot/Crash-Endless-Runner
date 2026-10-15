@@ -1,15 +1,14 @@
 # 🍊 WUMPA RUSH
-**Run wild. Smash everything.**
+**Hop wild. Dodge everything.**
 
-A complete **painted 2D platform-runner with three dodge lanes**, in the spirit of 1990s platformers, built with **Vite + HTML Canvas 2D** (plain JavaScript ES modules, no runtime dependencies).
-Everything is original and generated in code: the hero, the scenery, the crates, the sound effects and the music. There are no downloaded assets, no API keys and no external services (the optional "Titan One" / "Press Start 2P" fonts load from Google Fonts when online; system fonts are used offline).
+A complete **Crossy‑Road / Frogger‑style hopper**, built with **Vite + HTML Canvas 2D** (plain JavaScript ES modules, no runtime dependencies). Click or tap a tile to hop toward it, cross endless rows of traffic, rivers and train tracks, and see how far Rukk can get.
+Everything is original and generated in code: the hero, scenery, crates, sound effects and music. No downloaded assets, API keys or external services (the optional "Titan One" / "Press Start 2P" fonts load from Google Fonts when online; system fonts are used offline).
 
-* **Look:** a soft, hand-painted style (default): sunny lagoon with a wooden pier, mossy purple rock spires, giant blue crystal shards and puffy clouds, plus ancient ruins, jungle and rocky zones. Switch to a chunky **Pixel** style (low-res + dithering) in Settings → ART STYLE.
-* **Lanes:** the ground is a three-lane band (back / middle / front) like a classic beat-'em-up. Move between lanes to dodge; hazards never block every lane.
-* **Platforming:** spin attack, stompable critters, crate stacks you can jump onto, floating and bobbing platforms, stepping-stone pits, variable-height jumps, and a floating spirit mask that protects you (three masks = golden invincibility).
-* **Bosses:** every ~1,500 m *King Scuttler* attacks. He hops between lanes and lobs coconut bombs: get into his lane and **spin to bat a coconut back** at him.
-* **Hero:** *Rukk*, an original orange-brown cartoon marsupial (green fingerless gloves, blue shorts, oversized red sneakers), posed with sine-wave animation: run, jump (tucked legs), slide, spin, hit, victory dance, idle.
-* **Audio:** sound effects and a **procedural chiptune soundtrack** synthesised live with the Web Audio API: a tune for each zone, a boss theme and a menu theme, getting faster and fuller as you speed up.
+* **Look:** a soft hand‑painted top‑down lagoon (default) with piers, palms, purple rock spires and crystal shards, plus jungle, ruins and rocky zones. Switch to a chunky **Pixel** style (low‑res + dithering) in Settings → ART STYLE.
+* **Rows:** endless, procedurally generated and always passable: grass/pier rows (trees, rocks and iron crates block), trails with carts, boulders and beetles, rivers with logs and lily pads, and rails where the Tiki Express thunders through after a bell and red lights.
+* **Pressure:** stand still and the camera creeps up on you; fall off the bottom and a hawk snatches you.
+* **Hero:** *Rukk*, an original orange‑brown cartoon marsupial. Spirit masks absorb hits (three = golden invincibility).
+* **Audio:** Web Audio sound effects and a procedural chiptune soundtrack with a tune per zone.
 * **Saves:** best score, distance, gems and settings persist in `localStorage`.
 
 ---
@@ -38,26 +37,17 @@ npm run build && npm run preview
 
 | Action | Keyboard / mouse | Touch |
 |---|---|---|
-| Move to the lane behind / in front | `W` `↑` / `S` `↓` | Swipe up / down, or ▲ ▼ buttons |
-| Jump (hold = higher, tap = hop) | `Space`, `D` or `→` (or click) | Tap the right side, or JUMP |
-| Slide | `A`, `←` or `Shift` (hold to keep sliding; in mid-air: dive) | Tap the left side, or SLIDE |
-| Spin attack | `J`, `E`, `X` or `Ctrl` | SPIN button |
-| Pause | `Esc` | ❚❚ button |
+| Hop toward a tile (keeps walking across safe grass, stops before traffic or water) | Click a tile | Tap a tile |
+| Hop forward / back / left / right | `W` `S` `A` `D`, arrows, `Space` = forward | Swipe, or the on‑screen d‑pad |
+| Pause | `Esc` or `P` | ❚❚ button |
 | Restart (after game over) | `R` | Restart button |
 
 ## 🌴 How to play
 
-* Rukk runs on his own across three lanes. Collect **Wumpa Fruit**, smash crates, hunt gems, survive. Items only count when you are in their lane. You have **3 hearts**; a hit gives a short grace period and a brief slow‑down.
-* **Crates:** fruit crate (bursts into fruit) · bouncy crate (jump *onto* it to launch skyward) · mystery `?` crate (random reward: fruit, power‑up or gem) · **TNT** (a fuse lights as you approach and it blows as you arrive: leave its lane or jump the blast!) · iron crate (unbreakable: change lane, jump it or hop on top). **Jump onto a crate** to break it and bounce; crate **stacks** break one at a time from the top, or all at once if you smash through the side.
-* **Hazards:** fallen logs, big rocks and spiked barricades (change lane, jump or spin) · low branches (slide or change lane) · ravine gaps (jump; they cut across every lane) · **rolling boulders** (a red ! marks their lane) · **TNT** blasts only hit your own lane. At least one lane is always free, and hazards are spaced so there is room to jump, land and react.
-* **Gems:** green 500 · purple 1000 · blue 2000 · golden relic 5000. Many are placed in risky spots: high over gaps and obstacles, or under low branches.
-* **Spirit masks:** a carved tribal mask floats beside the hero and absorbs one hit (up to two at a time). Collect **three** for 12 seconds of golden invincibility: enemies are smashed on touch and nothing hurts you (pits still do!). Masks also come out of mystery crates.
-* **Other power‑ups:** 🧲 Magnet (pulls fruit) · ✦ Fruit ×2.
-* **Critters:** beetles and bats can be stomped from above or spun; spiky urchins can only be spun or dodged. Bats fly at head height, so slide under or dodge them.
-* **Platforms:** floating stair-step platforms carry bonus fruit, crates and gems; **bobbing elevator platforms** hover over some pits (the pit can always be jumped without them). Some pits are crossed by hopping between stepping-stone islands.
-* **Boss fight:** King Scuttler appears on the right and winds up (red warning lanes show where coconuts will roll). Stand in *his* lane, spin as a coconut arrives to knock it back, and it damages him. Coconuts in other lanes are decoys that you simply avoid. Defeating him drops fruit, gems and a mask, then the level resumes.
-* Speed ramps from 15 → 34 m/s over ~2.6 km, obstacles get denser and special zones (ancient ruins, rope bridge, rocky pass) appear more often.
-* **Close calls** (jumping a hazard by a hair) earn bonus points.
+* You have **3 hearts**. Carts, boulders, beetles, trains and open water cost a heart and put you back on your last safe tile. Standing on a log is safe, but logs drift: don't get carried off the side.
+* **Crates:** hop into a fruit crate to smash it (+4 fruit). Iron crates block the way.
+* **Pick‑ups:** fruit and gems (green 500, purple 1000, blue 2000), spirit masks, Magnet (pulls fruit) and Fruit ×2.
+* Progress is scored per row hopped, plus fruit, gems and crates. Zones change every 48 rows (lagoon, jungle, ruins, rocky) with new music.
 
 ---
 
@@ -69,26 +59,23 @@ vite.config.js
 start.command         macOS launcher
 src/
   main.js             boot + fatal-error screen
-  config/settings.js  ALL gameplay constants (speed, jump, hitboxes, power-up durations…) + localStorage store
+  config/settings.js  gameplay constants + localStorage store
   game/
-    Game.js           orchestrator: state machine, game loop, collision callbacks, music cues
-    Player.js         hero physics (lanes, variable jump, slide, spin attack) + procedurally posed cartoon drawing
-    Boss.js           the King Scuttler fight (lane hopping, coconut throws, deflect-to-damage)
-    World.js          pooled hazards / crates / items / enemies / platforms / ravine gaps + lane-aware safe layout generator
-    Renderer.js       painted + pixel render pipelines (parallax zones, lagoon/water, depth-sorted lanes)
-    Sprites.js        sprites: fruit, gems, relic, spirit mask, crates, enemies, platforms, hazards, power-ups
-    CollisionSystem.js  AABB collisions, platforms (logs, iron crates), gaps, near-miss
-    ParticleSystem.js pooled dots, stars, debris, rings and "POW!" text
-    ScoreManager.js   score, stats, best-score persistence
+    Game.js           state machine, loop, hits, pick‑ups, camera creep, hawk, music cues
+    Grid.js           lazy endless row generator (grass / road / river / rail) with safety rules
+    Hero.js           tile hopping, click‑to‑walk, log riding, respawn (wraps Player.js for the pose)
+    TopRenderer.js    painted + pixel top‑down render pipelines
+    Paint.js          painting helpers (trees, rocks, temples)
+    Sprites.js        fruit, gems, crates, carts, trains, logs, masks, power‑ups
+    ParticleSystem.js pooled particles and "POW!" text
+    ScoreManager.js   score, stats, best‑score persistence
     AudioManager.js   Web Audio synth sound effects
-    MusicManager.js   procedural chiptune sequencer: one tune per zone + menu theme
-    InputManager.js   keyboard, mouse and touch input (swipes, taps)
-    PowerUp.js        power-up timers and the spirit-mask stack
+    MusicManager.js   procedural chiptune sequencer
+    InputManager.js   keyboard, mouse click, touch tap/swipe
+    PowerUp.js        power‑up timers and the spirit‑mask stack
     Pool.js           tiny object pool
   ui/                 HUD.js, Menu.js, GameOver.js, icons.js, styles.css
 ```
-
-**Performance notes:** in Pixel style the scene is rendered at ~410×230 and upscaled; backdrops are pre-rendered once per zone into tileable strips; fruit, crates, hazards, particles and debris all come from fixed pools; entities behind the hero are recycled.
 
 ### Tweaking
 Open `src/config/settings.js`: change speeds, jump height, hitbox sizes, power‑up durations, scoring and difficulty from one object.

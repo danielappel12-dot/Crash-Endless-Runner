@@ -7,7 +7,7 @@ export class Menu {
     this.root = root;
     this.title = this.make('div', 'title-wrap hidden', `
       <h1 class="logo">WUMPA<span>RUSH</span></h1>
-      <div class="tagline">RUN WILD. SMASH EVERYTHING.</div>
+      <div class="tagline">HOP WILD. DODGE EVERYTHING.</div>
       <div class="menu-btns">
         <button class="btn green" data-a="play">Play</button>
         <button class="btn" data-a="howto">How to Play</button>
@@ -17,34 +17,30 @@ export class Menu {
     this.howto = this.make('div', 'screen dim hidden', `
       <div class="card">
         <h2>HOW TO PLAY</h2>
-        <p>Rukk the marsupial sprints automatically through the jungle. Collect <b>Wumpa Fruit</b>, smash crates, grab gems and survive as long as you can!</p>
+        <p>Rukk the marsupial is crossing the wild jungle. <b>Hop forward</b> as far as you can: dodge traffic, ride logs over rivers and beat the trains, collecting <b>Wumpa Fruit</b> and gems on the way.</p>
         <h3>CONTROLS</h3>
         <div class="keys">
-          <div><kbd>W</kbd><kbd>↑</kbd></div><div>Move to the lane behind</div>
-          <div><kbd>S</kbd><kbd>↓</kbd></div><div>Move to the lane in front</div>
-          <div><kbd>Space</kbd><kbd>D</kbd><kbd>→</kbd></div><div>Jump (hold for a higher jump, tap for a hop)</div>
-          <div><kbd>A</kbd><kbd>←</kbd><kbd>Shift</kbd></div><div>Slide (hold to keep sliding; in mid-air: dive)</div>
-          <div><kbd>J</kbd><kbd>E</kbd><kbd>X</kbd></div><div>Spin attack: smashes crates, defeats enemies</div>
+          <div>Click / tap a tile</div><div>Hop toward it (keeps walking across safe grass; stops before traffic and water)</div>
+          <div><kbd>W</kbd><kbd>↑</kbd><kbd>Space</kbd></div><div>Hop forward</div>
+          <div><kbd>A</kbd><kbd>←</kbd> <kbd>D</kbd><kbd>→</kbd></div><div>Hop left / right</div>
+          <div><kbd>S</kbd><kbd>↓</kbd></div><div>Hop back</div>
+          <div>Swipe</div><div>Hop in that direction (touch)</div>
           <div><kbd>Esc</kbd></div><div>Pause</div>
           <div><kbd>R</kbd></div><div>Restart after game over</div>
-          <div>Touch</div><div>Swipe up/down = change lane · tap right = jump · tap left = slide · or use the buttons (incl. SPIN)</div>
         </div>
-        <h3>HAZARDS</h3>
+        <h3>THE MAP</h3>
         <ul>
-          <li>The track has <b>3 lanes</b>. Hazards never block all of them: dodge sideways or jump.</li>
-          <li><b>Logs, rocks &amp; barricades</b> – change lane or jump. Hop onto logs and iron crates.</li>
-          <li><b>Low branches</b> – slide under or change lane. <b>Ravines</b> – jump across (every lane); some have stepping-stone islands.</li>
-          <li><b>Critters:</b> beetles and bats can be <b>stomped</b> from above or <b>spun</b>. Spiky urchins can only be spun or dodged.</li>
-          <li><b>Rolling boulders</b> – a red ! shows the lane they come down. Dodge or jump.</li>
-          <li><b>TNT crates</b> light a fuse as you approach – leave the lane or jump the blast!</li>
+          <li><b>Grass, piers &amp; stone:</b> safe, but trees, rocks and iron crates block the way. Hop into a <b>fruit crate</b> to smash it!</li>
+          <li><b>Trails:</b> wooden carts, rolling boulders and angry beetles. Time your hop through the gaps.</li>
+          <li><b>Rivers:</b> stand on <b>logs and lily pads</b> and hop between them. Falling in the water costs a heart, and so does being carried off the side.</li>
+          <li><b>Rails:</b> red lights and a bell mean the <b>Tiki Express</b> is coming. Wait for it to pass.</li>
+          <li>Stand still too long and the camera creeps up on you. Fall off the bottom and a <b>hawk</b> grabs you!</li>
         </ul>
         <h3>GOODIES</h3>
         <ul>
-          <li>Fruit crates and <b>?</b> mystery crates burst into fruit. Green arrow crates bounce you sky-high.</li>
-          <li>Gems: <b style="color:#2cff7a">green</b>, <b style="color:#b04cff">purple</b>, <b style="color:#3ca8ff">blue</b> and the legendary <b style="color:#ffcf2a">golden relic</b>.</li>
-          <li><b>Spirit masks</b> float beside you and each absorbs one hit. Grab <b>3</b> for a burst of golden invincibility! Also: <b>Magnet</b> pulls fruit, <b>x2</b> doubles fruit.</li>
-          <li>Jump onto <b>floating platforms</b> for bonus fruit and gems.</li>
-          <li>You have 3 hearts. A hit gives a short grace period.</li>
+          <li>Fruit, and gems: <b style="color:#2cff7a">green</b>, <b style="color:#b04cff">purple</b>, <b style="color:#3ca8ff">blue</b>. Coins on the trails are risky, so grab them wisely.</li>
+          <li><b>Spirit masks</b> float beside you and each absorbs one hit. Grab <b>3</b> for golden invincibility! Also <b>Magnet</b> (pulls nearby fruit) and <b>x2</b> fruit.</li>
+          <li>You have 3 hearts. A hit sends you back to your last safe tile.</li>
         </ul>
         <div class="row"><button class="btn small" data-a="back">Back</button></div>
       </div>`);

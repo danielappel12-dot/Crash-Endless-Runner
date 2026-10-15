@@ -41,8 +41,8 @@ export class HUD {
       <div class="toasts" data-k="toasts"></div>
       <div class="flash" data-k="flash"></div>
       <div class="touch">
-        <div class="grp"><button class="tbtn" data-a="laneUp">▲</button><button class="tbtn" data-a="laneDown">▼</button></div>
-        <div class="grp"><button class="tbtn wide" data-a="slide">SLIDE</button><button class="tbtn wide" data-a="spin">SPIN</button><button class="tbtn wide" data-a="jump">JUMP</button></div>
+        <div class="grp"></div>
+        <div class="dpad"><button class="tbtn" data-a="up">▲</button><div class="dpad-row"><button class="tbtn" data-a="left">◀</button><button class="tbtn" data-a="down">▼</button><button class="tbtn" data-a="right">▶</button></div></div>
       </div>
       <div class="countdown hidden" data-k="countdown"></div>`;
     root.appendChild(el);
@@ -89,7 +89,6 @@ export class HUD {
       });
       const up = () => {
         b.classList.remove('act');
-        if (b.dataset.a === 'jump') handlers.onAction('jumpRelease', 'touch');
       };
       b.addEventListener('pointerup', up);
       b.addEventListener('pointerleave', up);
@@ -165,7 +164,7 @@ export class HUD {
     this.q.crates.textContent = `${s.crates}/${s.cratesTotal}`;
     this.q.dist.textContent = fmt(d.dist);
     this.q.best.textContent = fmt(Math.max(s.best.score, s.score));
-    this.q.lvl.textContent = `LV ${s.level} · ${Math.round(s.speed)} m/s`;
+    this.q.lvl.textContent = `LV ${s.level} · ${s.zone || ''}`;
     this.q.speed.style.width = `${Math.round(s.speedRatio * 100)}%`;
 
     if (s.fruit !== this.last.fruit) {

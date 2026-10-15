@@ -1,7 +1,7 @@
 {
   "name": "wumpa-rush",
   "version": "1.0.0",
-  "description": "Wumpa Rush - a 3D endless runner built with Three.js and Vite",
+  "description": "Wumpa Rush - a Crossy-Road-style hopper built with Canvas 2D and Vite",
   "private": true,
   "type": "module",
   "scripts": {

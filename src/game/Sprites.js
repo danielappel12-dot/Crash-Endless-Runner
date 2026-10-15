@@ -1022,3 +1022,324 @@ export function drawBossBeetle(ctx, t, o) {
   }
   ctx.restore();
 }
+
+// ============================================================ hopper-map sprites
+// all anchored bottom-centre unless noted
+
+export function drawBush(ctx, v = 0) {
+  const cols = ['#58d048', '#46c23c', '#6ae05a'];
+  for (const [dx, dy, r, i] of [[-20, -18, 22, 0], [18, -16, 20, 1], [0, -32, 26, 2]]) {
+    ctx.beginPath();
+    ctx.arc(dx, dy, r, 0, 7);
+    fillStroke(ctx, cols[(i + v) % 3], 4);
+  }
+  ctx.beginPath();
+  ctx.ellipse(-6, -42, 8, 5, -0.5, 0, 7);
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.fill();
+  if (v % 2 === 0) for (const [fx, fy] of [[-26, -14], [22, -26], [4, -52]]) {
+    ctx.beginPath();
+    ctx.arc(fx, fy, 5, 0, 7);
+    fillStroke(ctx, '#ff6aa0', 2.5);
+  }
+}
+
+export function drawTreeRound(ctx, v = 0) {
+  ctx.beginPath();
+  ctx.moveTo(-12, 0);
+  ctx.quadraticCurveTo(-9, -40, -7, -76);
+  ctx.lineTo(7, -76);
+  ctx.quadraticCurveTo(9, -40, 12, 0);
+  ctx.closePath();
+  fillStroke(ctx, '#8a5430', 4.5);
+  const g = ['#36b83c', '#46d23c', '#2a9f3a'];
+  for (const [dx, dy, r, i] of [[-26, -92, 30, 0], [26, -92, 30, 2], [0, -118, 40, 1], [-6, -84, 34, 1]]) {
+    ctx.beginPath();
+    ctx.arc(dx, dy, r, 0, 7);
+    fillStroke(ctx, g[(i + v) % 3], 4.5);
+  }
+  ctx.beginPath();
+  ctx.ellipse(-14, -132, 14, 8, -0.5, 0, 7);
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(18, -86);
+  ctx.quadraticCurveTo(26, -64, 18, -44);
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = OUT;
+  ctx.stroke();
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = '#46d23c';
+  ctx.stroke();
+}
+
+export function drawPalmTree(ctx, v = 0, t = 0) {
+  const lean = v % 2 ? -14 : 14;
+  ctx.beginPath();
+  ctx.moveTo(-10, 0);
+  ctx.quadraticCurveTo(lean * 0.2 - 6, -50, lean - 6, -108);
+  ctx.lineTo(lean + 6, -108);
+  ctx.quadraticCurveTo(lean * 0.2 + 12, -50, 10, 0);
+  ctx.closePath();
+  fillStroke(ctx, '#9a6638', 4.5);
+  for (let i = 0; i < 7; i++) {
+    const a = -Math.PI + (i / 6) * Math.PI;
+    const sway = Math.sin(t * 1.5 + i) * 3;
+    ctx.beginPath();
+    ctx.moveTo(lean, -108);
+    ctx.quadraticCurveTo(lean + Math.cos(a) * 36, -108 + Math.sin(a) * 36 - 24, lean + Math.cos(a) * 66 + sway, -108 + Math.sin(a) * 16 + 24);
+    ctx.quadraticCurveTo(lean + Math.cos(a) * 34, -108 + Math.sin(a) * 26 + 4, lean, -102);
+    fillStroke(ctx, i % 2 ? '#3cc64a' : '#2aa83c', 3.5);
+  }
+  for (const dx of [-6, 8]) {
+    ctx.beginPath();
+    ctx.arc(lean + dx, -100, 7, 0, 7);
+    fillStroke(ctx, '#7a4a28', 2.5);
+  }
+}
+
+export function drawStoneColumn(ctx, v = 0) {
+  const h = 70 + (v % 3) * 16;
+  rrect(ctx, -26, -14, 52, 14, 4);
+  fillStroke(ctx, '#a89870', 4);
+  rrect(ctx, -18, -h, 36, h - 10, 3);
+  fillStroke(ctx, '#d2c298', 4);
+  ctx.strokeStyle = 'rgba(60,45,20,0.5)';
+  ctx.lineWidth = 2.5;
+  for (let y = -34; y > -h + 10; y -= 24) {
+    ctx.beginPath();
+    ctx.moveTo(-18, y);
+    ctx.lineTo(18, y);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#2fd8c8';
+  ctx.fillRect(-5, -h * 0.55, 10, 22);
+  if (v % 2 === 0) {
+    rrect(ctx, -28, -h - 14, 56, 18, 4);
+    fillStroke(ctx, '#a89870', 4);
+  } else {
+    ctx.beginPath();
+    ctx.ellipse(-24, -8, 14, 8, 0.3, 0, 7);
+    fillStroke(ctx, '#c9b98c', 3);
+  }
+  ctx.beginPath();
+  ctx.ellipse(10, -12, 12, 6, 0, 0, 7);
+  fillStroke(ctx, '#58d048', 2.5);
+}
+
+export function drawCrystalRock(ctx, v = 0) {
+  const cols = ['#9a7a5a', '#b08a62', '#8a6a4a'];
+  ctx.beginPath();
+  ctx.moveTo(-34, 0);
+  ctx.lineTo(-26, -34);
+  ctx.lineTo(-10, -52);
+  ctx.lineTo(4, -36);
+  ctx.lineTo(18, -62);
+  ctx.lineTo(30, -28);
+  ctx.lineTo(36, 0);
+  ctx.closePath();
+  fillStroke(ctx, cols[v % 3], 4.5);
+  ctx.beginPath();
+  ctx.moveTo(18, -62);
+  ctx.lineTo(30, -28);
+  ctx.lineTo(36, 0);
+  ctx.lineTo(16, 0);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(40,20,10,0.25)';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-6, -36);
+  ctx.lineTo(-2, -76);
+  ctx.lineTo(8, -40);
+  ctx.closePath();
+  fillStroke(ctx, '#7fd0ff', 3.5);
+  ctx.beginPath();
+  ctx.moveTo(-2, -76);
+  ctx.lineTo(3, -44);
+  ctx.lineTo(8, -40);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.fill();
+}
+
+export function drawLily(ctx, r, t, v = 0) {
+  ctx.save();
+  ctx.translate(0, -r * 0.18);
+  ctx.scale(1, 0.62);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, r, 0.35, Math.PI * 2 - 0.05);
+  ctx.closePath();
+  fillStroke(ctx, '#46c846', 4);
+  ctx.strokeStyle = 'rgba(20,90,30,0.55)';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(1 + i * 1.3) * r * 0.85, Math.sin(1 + i * 1.3) * r * 0.85);
+    ctx.stroke();
+  }
+  ctx.restore();
+  if (v % 2 === 0) {
+    ctx.save();
+    ctx.translate(r * 0.2, -r * 0.5 + Math.sin(t * 2 + v) * 1.5);
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(i * 1.26) * 7, Math.sin(i * 1.26) * 4 - 4, 6, 9, i * 1.26, 0, 7);
+      fillStroke(ctx, '#ff8ab4', 2);
+    }
+    ctx.beginPath();
+    ctx.arc(0, -5, 4, 0, 7);
+    ctx.fillStyle = '#ffe45a';
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+// wooden jungle cart / wagon, front at +x (flip with dir)
+export function drawCart(ctx, w, dir, t, variant = 'cart', phase = 0) {
+  ctx.save();
+  ctx.scale(dir, 1);
+  const h = variant === 'wagon' ? 46 : 52;
+  const wheelR = 15;
+  const spin = phase;
+  // load
+  if (variant === 'wagon') {
+    for (let i = -1; i <= 1; i++) {
+      rrect(ctx, i * (w * 0.28) - 14, -h - 22, 28, 28, 5);
+      fillStroke(ctx, '#b87a3a', 3.5);
+      ctx.beginPath();
+      ctx.moveTo(i * (w * 0.28) - 14, -h - 8);
+      ctx.lineTo(i * (w * 0.28) + 14, -h - 8);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = OUT;
+      ctx.stroke();
+    }
+  } else {
+    ctx.beginPath();
+    ctx.arc(-w * 0.12, -h - 6, 17, 0, 7);
+    fillStroke(ctx, '#ff5a1e', 3.5);
+    ctx.beginPath();
+    ctx.arc(w * 0.08, -h - 4, 14, 0, 7);
+    fillStroke(ctx, '#ff8a3a', 3.5);
+  }
+  // body
+  rrect(ctx, -w / 2, -h - wheelR + 8, w, h - 8, 8);
+  fillStroke(ctx, variant === 'wagon' ? '#2fb8a8' : '#d9964e', 4.5);
+  ctx.strokeStyle = 'rgba(40,20,8,0.4)';
+  ctx.lineWidth = 2.5;
+  for (let i = 1; i < 3; i++) {
+    ctx.beginPath();
+    ctx.moveTo(-w / 2 + 6, -h - wheelR + 8 + ((h - 8) * i) / 3);
+    ctx.lineTo(w / 2 - 6, -h - wheelR + 8 + ((h - 8) * i) / 3);
+    ctx.stroke();
+  }
+  rrect(ctx, -w / 2 - 2, -h - wheelR + 4, w + 4, 10, 4);
+  fillStroke(ctx, variant === 'wagon' ? '#1f8a7c' : '#8a5424', 3.5);
+  // tiki face on the front
+  ctx.beginPath();
+  ctx.ellipse(w / 2 - 14, -h * 0.55 - 6, 9, 11, 0, 0, 7);
+  fillStroke(ctx, '#f6e2b0', 3);
+  ctx.fillStyle = '#1a0f08';
+  ctx.fillRect(w / 2 - 18, -h * 0.55 - 11, 4, 5);
+  ctx.fillRect(w / 2 - 10, -h * 0.55 - 11, 4, 5);
+  ctx.fillRect(w / 2 - 17, -h * 0.55 - 2, 8, 3);
+  // wheels
+  const wheels = variant === 'wagon' ? [-w * 0.3, w * 0.3] : [-w * 0.26, w * 0.26];
+  for (const wx of wheels) {
+    ctx.save();
+    ctx.translate(wx, -wheelR + 2);
+    ctx.rotate(spin);
+    ctx.beginPath();
+    ctx.arc(0, 0, wheelR, 0, 7);
+    fillStroke(ctx, '#5a3a22', 4);
+    ctx.strokeStyle = '#d9b27a';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 3; i++) {
+      ctx.rotate(Math.PI / 3);
+      ctx.beginPath();
+      ctx.moveTo(-wheelR + 3, 0);
+      ctx.lineTo(wheelR - 3, 0);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// the "Tiki Express": a long mine-cart train; `len` in px, heading `dir`
+export function drawTrain(ctx, len, dir, t) {
+  ctx.save();
+  ctx.scale(dir, 1);
+  const car = 120;
+  const n = Math.floor((len - 150) / car);
+  const x0 = -len / 2;
+  const cols = ['#e8402a', '#ffb02a', '#2fb8a8', '#8a4ae0'];
+  for (let i = 0; i < n; i++) {
+    const cx = x0 + i * car;
+    rrect(ctx, cx + 4, -84, car - 8, 66, 8);
+    fillStroke(ctx, cols[i % 4], 4.5);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    for (let k = 0; k < 2; k++) ctx.fillRect(cx + 18 + k * 48, -72, 34, 22);
+    ctx.strokeStyle = OUT;
+    ctx.lineWidth = 3;
+    for (let k = 0; k < 2; k++) ctx.strokeRect(cx + 18 + k * 48, -72, 34, 22);
+    for (const wx of [24, car - 32]) {
+      ctx.beginPath();
+      ctx.arc(cx + wx, -12, 13, 0, 7);
+      fillStroke(ctx, '#3a2a22', 3.5);
+    }
+  }
+  // locomotive (front, +x)
+  const lx = x0 + n * car;
+  rrect(ctx, lx + 4, -96, 140, 78, 10);
+  fillStroke(ctx, '#2a62d8', 5);
+  rrect(ctx, lx + 70, -128, 70, 40, 8);
+  fillStroke(ctx, '#e8402a', 4.5);
+  ctx.fillStyle = 'rgba(255,255,255,0.4)';
+  ctx.fillRect(lx + 82, -118, 46, 18);
+  rrect(ctx, lx + 20, -122, 24, 34, 6);
+  fillStroke(ctx, '#1a1a22', 4);
+  ctx.beginPath();
+  ctx.arc(lx + 32 + Math.sin(t * 8) * 3, -138 - (t * 40 % 20), 11, 0, 7);
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.fill();
+  // face on the front
+  ctx.beginPath();
+  ctx.ellipse(lx + 132, -58, 14, 18, 0, 0, 7);
+  fillStroke(ctx, '#ffe45a', 4);
+  ctx.fillStyle = '#1a0f08';
+  ctx.fillRect(lx + 124, -68, 5, 7);
+  ctx.fillRect(lx + 134, -68, 5, 7);
+  ctx.beginPath();
+  ctx.moveTo(lx + 122, -76);
+  ctx.lineTo(lx + 142, -72);
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  for (const wx of [30, 70, 110]) {
+    ctx.beginPath();
+    ctx.arc(lx + wx, -14, 15, 0, 7);
+    fillStroke(ctx, '#3a2a22', 3.5);
+  }
+  ctx.restore();
+}
+
+// railway warning signal (anchored at the base of the post)
+export function drawSignal(ctx, on, t) {
+  rrect(ctx, -5, -86, 10, 86, 3);
+  fillStroke(ctx, '#d8d8e0', 3);
+  rrect(ctx, -20, -112, 40, 30, 8);
+  fillStroke(ctx, '#2a2a34', 3.5);
+  const flash = on && Math.sin(t * 16) > 0;
+  for (const [lx, lit] of [[-9, flash], [9, on && !flash]]) {
+    ctx.save();
+    if (lit) {
+      ctx.shadowColor = '#ff3a2a';
+      ctx.shadowBlur = 22;
+    }
+    ctx.beginPath();
+    ctx.arc(lx, -97, 7, 0, 7);
+    fillStroke(ctx, lit ? '#ff4a3a' : '#6a2a2a', 2.5);
+    ctx.restore();
+  }
+}
