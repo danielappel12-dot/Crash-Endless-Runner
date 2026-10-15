@@ -1,9 +1,46 @@
-// Inline SVG artwork for HUD / menus (original designs).
+import * as S from '../game/Sprites.js';
+
+// Pixel-art icons: the game's own sprites rendered tiny, alpha-thresholded and
+// shown with nearest-neighbour scaling (image-rendering: pixelated).
+
+function make(draw, n = 22, span = 84) {
+  const c = document.createElement('canvas');
+  c.width = c.height = n;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  // sprites use glow shadows; drop them so the silhouette stays crisp
+  Object.defineProperty(ctx, 'shadowBlur', { set() {}, get() { return 0; } });
+  ctx.scale(n / span, n / span);
+  ctx.translate(span / 2, span / 2);
+  draw(ctx);
+  const img = ctx.getImageData(0, 0, n, n);
+  for (let i = 0; i < img.data.length; i += 4) img.data[i + 3] = img.data[i + 3] > 110 ? 255 : 0;
+  ctx.putImageData(img, 0, 0);
+  return `<img class="px" alt="" draggable="false" src="${c.toDataURL()}">`;
+}
+
+const heartPath = new Path2D('M16 27C4 18 1 11 1 8 1 3 5 1 8.5 1 12 1 15 3 16 6 17 3 20 1 23.5 1 27 1 31 3 31 8c0 3-3 10-15 19z');
+function drawHeart(ctx) {
+  ctx.save();
+  ctx.scale(2.2, 2.2);
+  ctx.translate(-16, -14);
+  ctx.fillStyle = '#ff3a4a';
+  ctx.fill(heartPath);
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = '#3a0a10';
+  ctx.stroke(heartPath);
+  ctx.fillStyle = '#ffb0b8';
+  ctx.fillRect(7, 6, 5, 3);
+  ctx.restore();
+}
+
 export const ICON = {
-  fruit: `<svg viewBox="0 0 32 32"><path d="M16 10c-7-9-12-3-8 0 3-1 5 0 8 0s5-1 8 0c4-3-1-9-8 0z" fill="#3cc43c" stroke="#14601c" stroke-width="1.5"/><ellipse cx="16" cy="20" rx="11" ry="10.5" fill="#ff5a1e" stroke="#7a1e00" stroke-width="2"/><ellipse cx="19" cy="23" rx="6" ry="5" fill="#ff8a3a"/><ellipse cx="11.5" cy="15.5" rx="3" ry="4.2" fill="#fff4e0" transform="rotate(25 11.5 15.5)" opacity=".9"/></svg>`,
-  green: `<svg viewBox="0 0 32 32"><polygon points="16,2 26,12 16,30 6,12" fill="#2cff7a" stroke="#0a6a30" stroke-width="2"/><polygon points="16,2 26,12 16,14 6,12" fill="#b8ffd0"/><polygon points="16,14 26,12 16,30" fill="#18b858"/></svg>`,
-  purple: `<svg viewBox="0 0 32 32"><polygon points="16,2 29,10 25,26 7,26 3,10" fill="#b04cff" stroke="#4a1a8a" stroke-width="2"/><polygon points="16,2 29,10 16,15 3,10" fill="#e6c0ff"/><polygon points="16,15 25,26 7,26" fill="#7a2cc8"/></svg>`,
-  blue: `<svg viewBox="0 0 32 32"><polygon points="9,3 23,3 30,13 16,30 2,13" fill="#3ca8ff" stroke="#124a8a" stroke-width="2"/><polygon points="9,3 23,3 16,13" fill="#c0e4ff"/><polygon points="2,13 16,13 16,30" fill="#2078d0"/></svg>`,
-  relic: `<svg viewBox="0 0 32 32"><circle cx="16" cy="9" r="6" fill="#ffdc4a" stroke="#7a5000" stroke-width="2"/><path d="M10 27l3-14h6l3 14z" fill="#ffcf2a" stroke="#7a5000" stroke-width="2"/><rect x="13" y="7" width="2" height="2" fill="#2fe8d8"/><rect x="17" y="7" width="2" height="2" fill="#2fe8d8"/></svg>`,
-  heart: `<svg viewBox="0 0 32 28"><path d="M16 27C4 18 1 11 1 8 1 3 5 1 8.500 1 12 1 15 3 16 6 17 3 20 1 23.500 1 27 1 31 3 31 8c0 3-3 10-15 19z" fill="#ff3a4a" stroke="#6a0010" stroke-width="2"/><ellipse cx="9" cy="8" rx="3" ry="2" fill="#ffb0b8"/></svg>`,
+  fruit: make((c) => S.drawFruit(c, 0, 30), 24),
+  green: make((c) => S.drawGem(c, 'green', 0), 20, 80),
+  purple: make((c) => S.drawGem(c, 'purple', 0), 20, 80),
+  blue: make((c) => S.drawGem(c, 'blue', 0), 20, 80),
+  relic: make((c) => { c.translate(0, 6); S.drawRelic(c, 0); }, 20, 110),
+  heart: make(drawHeart, 20, 76),
+  magnet: make((c) => S.drawPowerup(c, 'magnet', 0), 22, 110),
+  shield: make((c) => S.drawPowerup(c, 'shield', 0), 22, 110),
+  multiplier: make((c) => S.drawPowerup(c, 'multiplier', 0), 22, 110),
 };

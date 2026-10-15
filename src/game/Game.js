@@ -50,6 +50,7 @@ export class Game {
         if (impact > 1500) this.shake = Math.max(this.shake, 4);
       },
       onSlide: () => this.audio.slide(),
+      onLane: () => this.audio.lane(),
     };
 
     const hudHandlers = {
@@ -66,6 +67,8 @@ export class Game {
       onMainMenu: () => this.toMenu(),
       onMute: () => this.toggleSound(),
       onVolume: (v) => this.audio.setVolume(v),
+      onMusic: () => { this.audio.unlock(); this.audio.music.setEnabled(!this.audio.music.enabled); this.menu.syncSettings(); this.audio.click(); },
+      onMusicVolume: (v) => this.audio.music.setVolume(v),
       onQuality: () => this.applyQuality(),
       onClick: () => this.audio.click(),
     });
@@ -150,6 +153,8 @@ export class Game {
     this.player.mode = 'idle';
     this.menu.showTitle();
     this.score.reset();
+    this.audio.music.play('menu');
+    this.audio.music.setIntensity(0);
   }
 
   startRun() {
@@ -170,6 +175,8 @@ export class Game {
     this.hud.show();
     this.hud.toast('GO!', '#4ddc44');
     this.state = 'playing';
+    this.audio.music.play('jungle');
+    this.audio.music.setIntensity(0);
   }
 
   pause() {
@@ -177,12 +184,14 @@ export class Game {
     this.state = 'paused';
     this.menu.showPause();
     this.audio.click();
+    this.audio.music.pause();
   }
 
   resume() {
     if (this.state !== 'paused') return;
     this.state = 'countdown';
     this.countT = 1.8;
+    this.audio.music.resume();
   }
 
   die() {
@@ -192,6 +201,7 @@ export class Game {
     this.player.mode = 'dead';
     this.shake = 14;
     this.audio.hit();
+    this.audio.music.stop(0.3);
   }
 
   finishRun() {
@@ -205,6 +215,7 @@ export class Game {
     }
     this.hud.hide();
     this.gameOver.show(this.score, this.score.best, records);
+    this.menuMusicT = 3.2;
   }
 
   handleAction(a) {
@@ -214,6 +225,8 @@ export class Game {
       case 'playing':
         if (a === 'jump') p.jump();
         else if (a === 'slide') p.slide();
+        else if (a === 'laneUp') p.moveLane(-1);
+        else if (a === 'laneDown') p.moveLane(1);
         else if (a === 'pause') this.pause();
         break;
       case 'paused':
@@ -279,6 +292,10 @@ export class Game {
       this.world.update(dt, this.worldCtx(0));
       this.particles.update(dt);
       if (this.state === 'menu') this.ambient(dt);
+      if (this.state === 'gameover' && this.menuMusicT > 0) {
+        this.menuMusicT -= dt;
+        if (this.menuMusicT <= 0) this.audio.music.play('menu');
+      }
     }
     // screen shake decays
     this.shake = Math.max(0, this.shake - dt * 30);
@@ -325,7 +342,10 @@ export class Game {
     this.camX += this.speedPx * dt;
     if (!dying && !p.falling) this.score.addDistance(speed * dt);
 
-    this.renderer.setBiome(this.biomeAt(this.score.distance + 160));
+    const biome = this.biomeAt(this.score.distance + 160);
+    if (this.renderer.setBiome(biome)) this.audio.music.play(biome);
+    this.audio.music.setIntensity((speed - S.start) / (S.max - S.start));
+    this.particles.lane = p.laneF;
     this.world.ensure(this.camX, Math.max(speed, S.start * 0.8), this.score.distance);
     const magnet = this.powerups.has('magnet') ? CONFIG.powerups.magnet.radius : 0;
     this.world.update(dt, this.worldCtx(magnet));
@@ -384,11 +404,16 @@ export class Game {
     return this._cb;
   }
 
+  sameLane(e) {
+    return Math.abs((e.lf ?? e.lane) - this.player.laneF) < 0.62;
+  }
+
   damage(source) {
     const p = this.player;
     if (this.state !== 'playing' || p.invuln > 0 || p.falling || this.god) return;
     const px = this.playerWorldX();
     const cy = p.y + p.h / 2;
+    this.particles.lane = p.laneF;
     if (this.powerups.consumeShield()) {
       p.invuln = 1.3;
       this.audio.shieldPop();
@@ -440,6 +465,7 @@ export class Game {
     if (!c.active) return;
     this.world.crates.release(c);
     const cy = c.y0 + c.h / 2;
+    this.particles.lane = c.lane;
     this.particles.chunks(c.x, cy, 14, c.kind === 'mystery' ? [0xb583e8, 0x6a3aa8, 0xffd23a] : WOOD, 560);
     this.particles.stars(c.x, cy, 6, [0xffd23a, 0xffffff]);
     this.particles.pop(c.x, cy + 70, ['POW!', 'BAM!', 'SMASH!'][(Math.random() * 3) | 0]);
@@ -451,7 +477,7 @@ export class Game {
       this.mysteryReward(c);
     } else {
       this.score.add(CONFIG.scoring.crate);
-      this.world.pop(c.x, cy, CONFIG.crates.fruitPerCrate);
+      this.world.pop(c.x, cy, CONFIG.crates.fruitPerCrate, c.lane);
     }
   }
 
@@ -459,27 +485,29 @@ export class Game {
     const r = Math.random();
     const y = c.y0 + c.h / 2;
     if (r < 0.5) {
-      this.world.pop(c.x, y, 8);
+      this.world.pop(c.x, y, 8, c.lane);
       this.hud.toast('FRUIT FRENZY!', '#ff8a1e', true);
     } else if (r < 0.68) {
       const type = ['magnet', 'shield', 'multiplier'][(Math.random() * 3) | 0];
-      this.world.popItem(type, c.x, y);
+      this.world.popItem(type, c.x, y, c.lane);
       this.hud.toast(`${POWERUPS[type].label}!`, POWERUPS[type].css, true);
     } else {
       const kind = r < 0.82 ? 'green' : r < 0.9 ? 'purple' : r < 0.96 ? 'blue' : 'relic';
-      this.world.popItem(kind, c.x, y);
+      this.world.popItem(kind, c.x, y, c.lane);
     }
+    this.particles.lane = c.lane;
     this.particles.ring(c.x, y, 0xffd23a, 30, 0.4);
   }
 
   bounceCrate(c) {
     c.squash = 0.35;
+    this.particles.lane = c.lane;
     this.player.bounce(CONFIG.crates.bounceVelocity);
     this.audio.bounce();
     this.shake = Math.max(this.shake, 4);
     this.score.add(CONFIG.scoring.crate);
     this.score.crates++;
-    this.world.pop(c.x, c.y0 + c.h, 3);
+    this.world.pop(c.x, c.y0 + c.h, 3, c.lane);
     this.particles.ring(c.x, c.y0 + c.h, 0x7cff5a, 40, 0.45);
     this.particles.emit(c.x, c.y0 + c.h, 10, { colors: [0x7cff5a, 0xffffff], speed: 360, angle: Math.PI / 2, arc: 2.4, life: 0.5, size: 10 });
     this.particles.pop(c.x, c.y0 + c.h + 80, 'BOING!', '#7cff5a');
@@ -490,6 +518,7 @@ export class Game {
     this.world.crates.release(c);
     const cy = c.y0 + c.h / 2;
     const P = this.particles;
+    P.lane = c.lane;
     P.emit(c.x, cy, 34, { colors: FIRE, speed: 520, up: 200, life: 0.7, size: 30, gravity: 300, grow: 0 });
     P.emit(c.x, cy + 20, 14, { colors: [0x444444, 0x666666], speed: 160, up: 300, life: 1.1, size: 34, gravity: -80 });
     P.ring(c.x, cy, 0xffd23a, 40, 0.45);
@@ -500,12 +529,13 @@ export class Game {
     this.shake = 18;
     const pl = this.player;
     const C = CONFIG.crates;
-    if (Math.abs(this.playerWorldX() - c.x) < C.tntBlastHalfWidth + pl.hw && pl.y < C.tntBlastHeight) this.damage('tnt');
+    if (this.sameLane(c) && Math.abs(this.playerWorldX() - c.x) < C.tntBlastHalfWidth + pl.hw && pl.y < C.tntBlastHeight) this.damage('tnt');
   }
 
   collect(it) {
     if (!it.active) return;
     const P = this.particles;
+    P.lane = it.lf;
     if (it.kind === 'fruit') {
       this.world.items.release(it);
       const mult = this.powerups.has('multiplier') ? CONFIG.powerups.multiplier.factor : 1;
@@ -533,6 +563,7 @@ export class Game {
     this.world.items.release(it);
     this.powerups.activate(type);
     this.audio.powerup();
+    this.particles.lane = it.lf;
     const c = POWERUPS[type];
     this.particles.ring(it.x, it.y, c.color, 40, 0.55);
     this.particles.stars(it.x, it.y, 10, [c.color, 0xffffff], 420);

@@ -1,4 +1,4 @@
-import { CONFIG } from '../config/settings.js';
+import { CONFIG, laneY } from '../config/settings.js';
 
 // Fixed-size 2D particle pool: dots, stars, wood/stone chunks, rings, text pops.
 // Positions are world x and height-above-ground y.
@@ -8,14 +8,16 @@ export class ParticleSystem {
   constructor() {
     this.list = [];
     for (let i = 0; i < CONFIG.particles.max; i++) {
-      this.list.push({ life: 0, x: 0, y: 0, vx: 0, vy: 0, max: 1, size: 8, color: '#fff', type: 'dot', rot: 0, vr: 0, g: 0, grow: 0, text: '' });
+      this.list.push({ life: 0, x: 0, y: 0, vx: 0, vy: 0, max: 1, size: 8, color: '#fff', type: 'dot', rot: 0, vr: 0, g: 0, grow: 0, text: '', lane: 1 });
     }
     this.next = 0;
+    this.lane = 1;
   }
 
   _get() {
     const p = this.list[this.next];
     this.next = (this.next + 1) % this.list.length;
+    p.lane = this.lane;
     return p;
   }
 
@@ -81,12 +83,12 @@ export class ParticleSystem {
     }
   }
 
-  draw(ctx, camX, groundY) {
+  draw(ctx, camX, r) {
     for (const p of this.list) {
       if (p.life <= 0) continue;
       const t = Math.max(0, p.life / p.max);
-      const sx = p.x - camX;
-      const sy = groundY - p.y;
+      const sx = r.snap(p.x - camX);
+      const sy = r.snap(laneY(p.lane) - p.y);
       ctx.save();
       ctx.translate(sx, sy);
       ctx.globalAlpha = Math.min(1, t * 1.8);

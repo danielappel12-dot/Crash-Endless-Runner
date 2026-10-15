@@ -11,6 +11,11 @@ export class CollisionSystem {
     this.g = game;
   }
 
+  // is entity e on the hero's lane (hero may be mid lane-switch)?
+  sameLane(p, e) {
+    return Math.abs((e.lf ?? e.lane) - p.laneF) < 0.62;
+  }
+
   playerRect(p, px) {
     return { x0: px - p.hw, x1: px + p.hw, y0: p.y, y1: p.y + p.h };
   }
@@ -22,7 +27,7 @@ export class CollisionSystem {
     if (world.gapAt(px, 18)) return -Infinity;
     let ground = 0;
     const test = (e) => {
-      if (!e.platform) return;
+      if (!e.platform || !this.sameLane(p, e)) return;
       if (px + p.hw * 0.8 < e.x - e.w / 2 || px - p.hw * 0.8 > e.x + e.w / 2) return;
       const top = e.y0 + e.h;
       if (p.y >= top - PLATFORM_TOL && top > ground) ground = top;
@@ -49,7 +54,7 @@ export class CollisionSystem {
     const standingOn = (e) => e.platform && p.y >= e.y0 + e.h - PLATFORM_TOL;
 
     for (const h of world.hazards.active) {
-      if (Math.abs(h.x - px) > 400) continue;
+      if (Math.abs(h.x - px) > 400 || !this.sameLane(p, h)) continue;
       let hitBox = h;
       if (h.kind === 'boulder') hitBox = { x: h.x, w: h.w * 0.8, y0: 0, h: h.h * 0.85 };
       if (overlap(hitBox) && !standingOn(h)) cb.hit(h);
@@ -58,7 +63,7 @@ export class CollisionSystem {
 
     for (let i = world.crates.active.length - 1; i >= 0; i--) {
       const c = world.crates.active[i];
-      if (Math.abs(c.x - px) > 300) continue;
+      if (Math.abs(c.x - px) > 300 || !this.sameLane(p, c)) continue;
       const top = c.y0 + c.h;
       if (c.kind === 'metal') {
         if (overlap(c) && !standingOn(c)) cb.hit(c);
@@ -79,6 +84,7 @@ export class CollisionSystem {
     for (let i = world.items.active.length - 1; i >= 0; i--) {
       const it = world.items.active[i];
       const rad = it.kind === 'fruit' ? 30 : it.kind === 'magnet' || it.kind === 'shield' || it.kind === 'multiplier' ? 40 : 38;
+      if (!this.sameLane(p, it)) continue;
       if (it.x + rad < r.x0 || it.x - rad > r.x1) continue;
       if (it.y < cy0 - 4 || it.y > cy1 + 4) continue;
       if (it.kind === 'magnet' || it.kind === 'shield' || it.kind === 'multiplier') cb.powerup(it);

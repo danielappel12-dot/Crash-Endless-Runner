@@ -16,7 +16,7 @@ export class HUD {
         <div class="hearts" data-k="hearts"></div>
       </div>
       <div class="panel hud-center">
-        <div class="hud-dist chunk"><span data-k="dist">0</span> m</div>
+        <div class="hud-dist chunk"><span data-k="dist">0</span>m</div>
         <div class="hud-lvl" data-k="lvl">LV 1</div>
         <div class="speedbar"><i data-k="speed"></i></div>
       </div>
@@ -38,8 +38,8 @@ export class HUD {
       <div class="toasts" data-k="toasts"></div>
       <div class="flash" data-k="flash"></div>
       <div class="touch">
-        <div class="grp"><button class="tbtn wide" data-a="slide">SLIDE ▼</button></div>
-        <div class="grp"><button class="tbtn wide" data-a="jump">JUMP ▲</button></div>
+        <div class="grp"><button class="tbtn" data-a="laneUp">▲</button><button class="tbtn" data-a="laneDown">▼</button></div>
+        <div class="grp"><button class="tbtn wide" data-a="slide">SLIDE</button><button class="tbtn wide" data-a="jump">JUMP</button></div>
       </div>
       <div class="countdown hidden" data-k="countdown"></div>`;
     root.appendChild(el);
@@ -61,7 +61,7 @@ export class HUD {
       const c = document.createElement('div');
       c.className = 'pu hidden';
       c.style.setProperty('--c', v.css);
-      c.innerHTML = `<div class="ic">${v.icon}</div><div><div class="nm chunk">${v.label}</div><div class="bar"><i></i></div></div>`;
+      c.innerHTML = `<div class="ic">${ICON[k]}</div><div><div class="nm chunk">${v.label}</div><div class="bar"><i></i></div></div>`;
       this.q.pus.appendChild(c);
       this.chips[k] = { el: c, bar: c.querySelector('i') };
     }

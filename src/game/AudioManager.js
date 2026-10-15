@@ -1,4 +1,5 @@
 import { store, persist } from '../config/settings.js';
+import { MusicManager } from './MusicManager.js';
 
 // Tiny synth built on the Web Audio API. All sounds are generated from
 // oscillators and filtered noise, so no audio files are needed. The context is
@@ -12,6 +13,7 @@ export class AudioManager {
     this.enabled = store.settings.sound;
     this.volume = store.settings.volume;
     this._last = {};
+    this.music = new MusicManager();
   }
 
   unlock() {
@@ -28,6 +30,7 @@ export class AudioManager {
       this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      this.music.attach(this.ctx, this.master);
     }
     if (this.ctx.state === 'suspended') this.ctx.resume();
   }

@@ -28,6 +28,8 @@ export class Player {
   reset() {
     this.y = 0;
     this.vy = 0;
+    this.lane = 1;
+    this.laneF = 1;
     this.speed = 0;
     this.grounded = true;
     this.coyote = 0;
@@ -49,6 +51,15 @@ export class Player {
   }
 
   get hw() { return P.halfWidth; }
+
+  moveLane(dir) {
+    if (this.mode !== 'run' || this.falling) return false;
+    const n = Math.max(0, Math.min(2, this.lane + dir));
+    if (n === this.lane) return false;
+    this.lane = n;
+    this.callbacks.onLane?.();
+    return true;
+  }
 
   jump() {
     if (this.mode !== 'run' || this.falling) return;
@@ -113,6 +124,8 @@ export class Player {
     if (this.jumpBuffer > 0) this.jumpBuffer -= dt;
     if (this.pendingSlide > 0) this.pendingSlide -= dt;
     this.squash = damp(this.squash, 0, 9, dt);
+    this.laneF = damp(this.laneF, this.lane, 17, dt);
+    if (Math.abs(this.laneF - this.lane) < 0.01) this.laneF = this.lane;
 
     if (this.mode === 'run' || this.mode === 'dead') {
       if (this.grounded && groundH < this.y - 0.5) {
@@ -311,7 +324,8 @@ export class Player {
     const p = this.pose;
     const flicker = this.invuln > 0 && this.mode !== 'dead' && Math.sin(this.time * 45) > 0.2;
     if (flicker) return;
-    const sy = groundSy - this.y;
+    const gy = groundSy; // screen y of the feet when standing on this lane's ground
+    const sy = gy - this.y;
     // ground shadow
     const hgt = Math.max(0, this.y - (Number.isFinite(this.groundY) ? this.groundY : 0));
     if (Number.isFinite(this.groundY) && !this.falling) {
@@ -319,7 +333,7 @@ export class Player {
       ctx.save();
       ctx.fillStyle = 'rgba(30,15,5,0.28)';
       ctx.beginPath();
-      ctx.ellipse(sx, groundSy - Math.max(0, this.groundY) + 3, 46 * k, 9 * k, 0, 0, 7);
+      ctx.ellipse(sx, gy - Math.max(0, this.groundY) + 3, 46 * k, 9 * k, 0, 0, 7);
       ctx.fill();
       ctx.restore();
     }

@@ -1,4 +1,4 @@
-import { CONFIG } from '../config/settings.js';
+import { CONFIG, laneY } from '../config/settings.js';
 import * as S from './Sprites.js';
 
 // Canvas2D renderer: painted parallax backdrops (pre-rendered per biome),
@@ -279,84 +279,72 @@ function nearLayer(name, st, seed, scale) {
 }
 
 function frontLayer(st, seed, scale) {
-  return layer(TW, 180, scale, (ctx, w, h) => {
+  return layer(TW, 64, scale, (ctx, w, h) => {
     const R = rng(seed);
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 12; i++) {
       const x = R() * w;
-      wrapR(ctx, w, x, 90, seed * 3 + i, (xx, q) => {
-        for (let k = 0; k < 5; k++) {
+      wrapR(ctx, w, x, 60, seed * 3 + i, (xx, q) => {
+        for (let k = 0; k < 4; k++) {
           ctx.beginPath();
-          ctx.moveTo(xx + (k - 2) * 12, h);
-          ctx.quadraticCurveTo(xx + (k - 2) * 20, h - 40, xx + (k - 2) * 26 + q() * 8, h - 70 - q() * 40);
-          ctx.quadraticCurveTo(xx + (k - 2) * 14 + 8, h - 40, xx + (k - 2) * 12 + 14, h);
-          fs(ctx, k % 2 ? '#4cd040' : '#34ac36', 4);
-        }
-        if (i % 3 === 0) {
-          const c = ['#ff5fa0', '#ffd23a', '#2fd0c8'][i % 9 === 0 ? 0 : i % 9 === 3 ? 1 : 2];
-          for (let k = 0; k < 5; k++) {
-            const a = (k / 5) * 6.28;
-            ctx.beginPath();
-            ctx.arc(xx + Math.cos(a) * 10, h - 85 + Math.sin(a) * 10, 9, 0, 7);
-            fs(ctx, c, 3);
-          }
-          ctx.beginPath();
-          ctx.arc(xx, h - 85, 7, 0, 7);
-          fs(ctx, '#fff2a0', 3);
+          ctx.moveTo(xx + (k - 1.5) * 10, h);
+          ctx.quadraticCurveTo(xx + (k - 1.5) * 16, h - 24, xx + (k - 1.5) * 22 + q() * 6, h - 40 - q() * 18);
+          ctx.quadraticCurveTo(xx + (k - 1.5) * 12 + 6, h - 22, xx + (k - 1.5) * 10 + 12, h);
+          fs(ctx, k % 2 ? '#4cd040' : '#34ac36', 3.5);
         }
       });
     }
   });
 }
 
+// Ground band (grass lip + earth) spanning all three lanes, with faint lane markers.
 function groundTile(st, seed, scale) {
-  const TH = 140, TWG = 512;
+  const TH = 300, TWG = 512;
+  const lanes = [105, 195];
   return layer(TWG, TH, scale, (ctx, w, h) => {
     const R = rng(seed);
     const kind = st.ground;
     if (kind === 'plank') {
-      // bridge deck
-      ctx.fillStyle = '#b9803f';
-      ctx.fillRect(0, 0, w, 52);
+      ctx.fillStyle = '#9a6a34';
+      ctx.fillRect(0, 0, w, h);
       for (let x = 0; x < w; x += 64) {
-        rr(ctx, x + 3, 6, 58, 42, 6);
+        rr(ctx, x + 3, 14, 58, h - 18, 5);
         fs(ctx, ['#c8904a', '#b27a38', '#d19a54'][(x / 64) % 3], 4);
+        ctx.strokeStyle = 'rgba(60,30,10,0.35)';
+        ctx.lineWidth = 2;
+        for (let y = 40; y < h - 20; y += 38) {
+          ctx.beginPath();
+          ctx.moveTo(x + 10, y);
+          ctx.quadraticCurveTo(x + 32, y + R() * 8 - 4, x + 54, y);
+          ctx.stroke();
+        }
         ctx.fillStyle = OUT;
-        for (const dx of [10, 50]) { ctx.beginPath(); ctx.arc(x + dx, 27, 3, 0, 7); ctx.fill(); }
+        for (const dy of [28, h - 28]) for (const dx of [14, 50]) { ctx.beginPath(); ctx.arc(x + dx, dy, 3, 0, 7); ctx.fill(); }
       }
-      ctx.fillStyle = '#4ddacd';
-      ctx.fillRect(0, 60, w, h - 60);
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
-      ctx.lineWidth = 3;
-      for (let i = 0; i < 6; i++) {
-        const x = R() * w, y = 70 + R() * 60;
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.quadraticCurveTo(x + 18, y - 8, x + 36, y);
-        ctx.stroke();
-      }
+      // rope rail along the far edge
+      ctx.fillStyle = '#e8d29a';
+      ctx.fillRect(0, 0, w, 12);
       ctx.fillStyle = OUT;
-      ctx.fillRect(0, 52, w, 5);
-      for (let x = 32; x < w; x += 128) {
-        rr(ctx, x - 7, 52, 14, 90, 3);
-        fs(ctx, '#7a4a28', 4);
-      }
+      ctx.fillRect(0, 12, w, 4);
+      for (let x = 20; x < w; x += 128) { rr(ctx, x - 6, -16, 12, 36, 3); fs(ctx, '#7a4a28', 4); }
+      ctx.strokeStyle = 'rgba(60,30,10,0.4)';
+      ctx.lineWidth = 3;
+      for (const y of lanes) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.setLineDash([22, 18]); ctx.stroke(); ctx.setLineDash([]); }
       return;
     }
-    // earth body
     ctx.fillStyle = st.dirt;
     ctx.fillRect(0, 22, w, h - 22);
     if (kind === 'stone') {
       ctx.strokeStyle = OUT;
       ctx.lineWidth = 3.5;
-      for (let y = 40; y < h; y += 48) {
+      for (let y = 40; y < h; y += 52) {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-        const off = (y / 48) % 2 ? 0 : 64;
-        for (let x = off; x < w + 64; x += 128) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 48); ctx.stroke(); }
+        const off = (y / 52) % 2 ? 0 : 64;
+        for (let x = off; x < w + 64; x += 128) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 52); ctx.stroke(); }
       }
       ctx.fillStyle = '#2fd8c8';
-      for (let x = 20; x < w; x += 128) ctx.fillRect(x, 54, 40, 6);
+      for (const y of lanes) for (let x = 20; x < w; x += 128) ctx.fillRect(x, y - 3, 44, 6);
     } else {
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < 34; i++) {
         const x = R() * w, y = 42 + R() * (h - 52), r = 6 + R() * 14;
         wrap(ctx, w, x, r, (xx) => {
           ctx.beginPath();
@@ -364,15 +352,15 @@ function groundTile(st, seed, scale) {
           fs(ctx, i % 2 ? st.dirtD : '#d9a468', 3.5);
         });
       }
-      ctx.fillStyle = st.dirtD;
-      ctx.globalAlpha = 0.55;
-      for (let i = 0; i < 6; i++) {
-        const x = R() * w, y = 70 + R() * 50;
-        ctx.beginPath(); ctx.ellipse(x, y, 40, 8, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = st.dirtD;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      for (const y of lanes) {
+        ctx.setLineDash([26, 22]);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        ctx.setLineDash([]);
       }
-      ctx.globalAlpha = 1;
     }
-    // scalloped grass lip on top
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.lineTo(w, 0);
@@ -384,45 +372,47 @@ function groundTile(st, seed, scale) {
     }
     ctx.closePath();
     fs(ctx, st.grass, 5);
-    ctx.beginPath();
-    ctx.rect(0, 0, w, 10);
     ctx.fillStyle = st.grassD;
-    ctx.fill();
+    ctx.fillRect(0, 0, w, 10);
     ctx.fillStyle = OUT;
     ctx.fillRect(0, 0, w, 3);
-    // bottom fade
-    const g = ctx.createLinearGradient(0, h * 0.5, 0, h);
+    const g = ctx.createLinearGradient(0, h * 0.4, 0, h);
     g.addColorStop(0, 'rgba(60,30,10,0)');
-    g.addColorStop(1, 'rgba(60,30,10,0.45)');
+    g.addColorStop(1, 'rgba(60,30,10,0.4)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
   });
 }
 
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+const LEVELS = 26; // colour levels per channel after posterising (about 17k colours)
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
+    this.low = document.createElement('canvas');
+    this.lctx = this.low.getContext('2d', { willReadFrequently: true });
     this.viewW = 1280;
     this.scale = 1;
     this.ox = 0;
     this.oy = 0;
     this.dpr = 1;
+    this.PIX = V.pixel;
     this.layers = {};
     this.biome = 'jungle';
     this.prevBiome = 'jungle';
     this.fade = 1;
-    this.layerScale = 1;
     this.cloudX = 0;
     this.shakeX = 0;
     this.shakeY = 0;
-    this.slow = 0;
+    this.list = [];
   }
 
   setQuality(low) {
-    const want = low ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
-    if (want !== this.layerScale || !Object.keys(this.layers).length) {
-      this.layerScale = want;
+    const pix = low ? 0.3125 : V.pixel;
+    if (pix !== this.PIX || !Object.keys(this.layers).length) {
+      this.PIX = pix;
       this.layers = {};
     }
     this.dprCap = low ? 1 : Math.min(window.devicePixelRatio || 1, 2);
@@ -439,21 +429,24 @@ export class Renderer {
     this.dpr = this.dprCap || 1;
     this.canvas.width = Math.round(iw * this.dpr);
     this.canvas.height = Math.round(ih * this.dpr);
+    this.low.width = Math.round(this.viewW * this.PIX);
+    this.low.height = Math.round(V.H * this.PIX);
     this.iw = iw;
     this.ih = ih;
   }
 
   setBiome(b) {
-    if (b === this.biome) return;
+    if (b === this.biome) return false;
     this.prevBiome = this.biome;
     this.biome = b;
     this.fade = 0;
+    return true;
   }
 
   getLayers(name) {
     if (!this.layers[name]) {
       const st = BIOME_STYLE[name];
-      const k = this.layerScale;
+      const k = this.PIX;
       const seed = name.length * 977;
       this.layers[name] = {
         far: farLayer(st, seed + 1, k),
@@ -466,19 +459,23 @@ export class Renderer {
     return this.layers[name];
   }
 
+  snap(v) {
+    return Math.round(v * this.PIX) / this.PIX;
+  }
+
   strip(ctx, img, scroll, y, alpha = 1) {
     const w = img.vw;
-    let x = -(((scroll % w) + w) % w);
+    let x = this.snap(-(((scroll % w) + w) % w));
+    const yy = this.snap(y);
     ctx.globalAlpha = alpha;
-    for (; x < this.viewW; x += w) ctx.drawImage(img, x, y, w + 1, img.vh);
+    for (; x < this.viewW; x += w) ctx.drawImage(img, x, yy, w + 1.5, img.vh);
     ctx.globalAlpha = 1;
   }
 
-  drawBackdrop(ctx, camX, time, name, alpha) {
+  drawSkyGradient(ctx, name, alpha) {
     const st = BIOME_STYLE[name];
-    const G = V.groundY;
     ctx.globalAlpha = alpha;
-    const g = ctx.createLinearGradient(0, 0, 0, G);
+    const g = ctx.createLinearGradient(0, 0, 0, V.horizonY);
     g.addColorStop(0, st.sky[0]);
     g.addColorStop(0.55, st.sky[1]);
     g.addColorStop(1, st.sky[2]);
@@ -488,7 +485,6 @@ export class Renderer {
   }
 
   drawSky(ctx, time) {
-    // sun
     const sx = this.viewW * 0.78, sy = 120;
     ctx.save();
     ctx.translate(sx, sy);
@@ -510,14 +506,12 @@ export class Renderer {
     ctx.ellipse(sx - 18, sy - 20, 14, 8, -0.6, 0, 7);
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.fill();
-    // clouds
     const cl = [[0.1, 90, 1], [0.38, 150, 0.8], [0.62, 70, 1.15], [0.9, 170, 0.7]];
     for (const [fx, y, s] of cl) {
       const x = (((fx * this.viewW + this.cloudX) % (this.viewW + 300)) + this.viewW + 300) % (this.viewW + 300) - 150;
       ctx.save();
       ctx.translate(x, y + Math.sin(time * 0.6 + fx * 9) * 4);
       ctx.scale(s, s);
-      // outline pass then fill pass for a clean blobby silhouette
       const parts = [[-40, 6, 30], [-6, -12, 40], [34, 2, 34], [66, 14, 22]];
       ctx.fillStyle = OUT;
       for (const [px, py, r] of parts) { ctx.beginPath(); ctx.arc(px, py, r + 4, 0, 7); ctx.fill(); }
@@ -529,13 +523,20 @@ export class Renderer {
     }
   }
 
+  drawLayers(ctx, camX, name, alpha) {
+    const L = this.getLayers(name);
+    const G = V.horizonY;
+    this.strip(ctx, L.far, camX * 0.1, G - 580 + 20, alpha);
+    this.strip(ctx, L.mid, camX * 0.28, G - 680 + 24, alpha);
+    this.strip(ctx, L.near, camX * 0.55, G - 330 + 14, alpha);
+  }
+
   drawGround(ctx, camX, gaps, name, alpha) {
-    const G = V.groundY;
+    const G = V.horizonY;
     const L = this.getLayers(name);
     const st = BIOME_STYLE[name];
     ctx.save();
     ctx.globalAlpha = alpha;
-    // chasms first (behind the ground tiles)
     for (const gp of gaps) {
       const x0 = gp.x0 - camX, x1 = gp.x1 - camX;
       if (x1 < -20 || x0 > this.viewW + 20) continue;
@@ -549,20 +550,18 @@ export class Renderer {
       }
       ctx.fillStyle = g;
       ctx.fillRect(x0, G, x1 - x0, V.H - G + 4);
-      // jagged walls
       ctx.fillStyle = st.dirtD;
       ctx.beginPath();
       ctx.moveTo(x0, G);
-      for (let y = G + 20; y < V.H; y += 26) ctx.lineTo(x0 + (((y / 26) | 0) % 2 ? 14 : 5), y);
+      for (let y = G + 20; y < V.H; y += 30) ctx.lineTo(x0 + (((y / 30) | 0) % 2 ? 16 : 5), y);
       ctx.lineTo(x0, V.H);
       ctx.fill();
       ctx.beginPath();
       ctx.moveTo(x1, G);
-      for (let y = G + 20; y < V.H; y += 26) ctx.lineTo(x1 - (((y / 26) | 0) % 2 ? 5 : 14), y);
+      for (let y = G + 20; y < V.H; y += 30) ctx.lineTo(x1 - (((y / 30) | 0) % 2 ? 5 : 16), y);
       ctx.lineTo(x1, V.H);
       ctx.fill();
     }
-    // ground tiles with holes
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, G - 40, this.viewW, V.H - G + 40);
@@ -573,10 +572,10 @@ export class Renderer {
     ctx.clip('evenodd');
     const tile = L.ground;
     const w = tile.vw;
-    let x = -(((camX % w) + w) % w);
-    for (; x < this.viewW; x += w) ctx.drawImage(tile, x, G, w + 1, tile.vh);
+    let x = this.snap(-(((camX % w) + w) % w));
+    const yy = this.snap(G);
+    for (; x < this.viewW; x += w) ctx.drawImage(tile, x, yy, w + 1.5, tile.vh);
     ctx.restore();
-    // gap lips
     for (const gp of gaps) {
       const x0 = gp.x0 - camX, x1 = gp.x1 - camX;
       if (x1 < -20 || x0 > this.viewW + 20) continue;
@@ -593,67 +592,77 @@ export class Renderer {
     ctx.restore();
   }
 
+  // posterise + ordered dither: gives the chunky "console" colour look
+  post(ctx, w, h) {
+    const img = ctx.getImageData(0, 0, w, h);
+    const d = img.data;
+    const step = 255 / (LEVELS - 1), inv = 1 / step;
+    const amp = step * 0.85;
+    let i = 0;
+    for (let y = 0; y < h; y++) {
+      const row = (y & 3) * 4;
+      for (let x = 0; x < w; x++, i += 4) {
+        const o = ((BAYER[row + (x & 3)] + 0.5) / 16 - 0.5) * amp;
+        d[i] = Math.round((d[i] + o) * inv) * step;
+        d[i + 1] = Math.round((d[i + 1] + o) * inv) * step;
+        d[i + 2] = Math.round((d[i + 2] + o) * inv) * step;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
   render(game, dt) {
-    const ctx = this.ctx;
+    const L = this.lctx;
     const { world, player, particles } = game;
     const time = game.time;
+    const PIX = this.PIX;
     this.cloudX -= dt * 8;
     if (this.fade < 1) this.fade = Math.min(1, this.fade + dt / 1.4);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#8fdcf0';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    const k = this.dpr * this.scale;
-    ctx.setTransform(k, 0, 0, k, this.ox * this.dpr + this.shakeX * k, this.oy * this.dpr + this.shakeY * k);
-    // clip to the stage so oversized strips don't bleed into the letterbox
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(-40, -40, this.viewW + 80, V.H + 80);
-    ctx.clip();
+    const fade = this.fade;
 
+    L.setTransform(1, 0, 0, 1, 0, 0);
+    L.imageSmoothingEnabled = false;
+    L.fillStyle = '#8fdcf0';
+    L.fillRect(0, 0, this.low.width, this.low.height);
+    L.setTransform(PIX, 0, 0, PIX, Math.round(this.shakeX * PIX), Math.round(this.shakeY * PIX));
+    const ctx = L;
     const camX = game.camX;
-    // backdrops (with crossfade)
-    if (this.fade < 1) this.drawBackdrop(ctx, camX, time, this.prevBiome, 1);
-    this.drawBackdrop(ctx, camX, time, this.biome, this.fade < 1 ? this.fade : 1);
+
+    if (fade < 1) this.drawSkyGradient(ctx, this.prevBiome, 1);
+    this.drawSkyGradient(ctx, this.biome, fade < 1 ? fade : 1);
     this.drawSky(ctx, time);
-    // sky is drawn over far layers? draw sun before layers: re-draw far/mid on top
-    if (this.fade < 1) {
-      this.drawLayersOnly(ctx, camX, this.prevBiome, 1);
+    if (fade < 1) this.drawLayers(ctx, camX, this.prevBiome, 1);
+    this.drawLayers(ctx, camX, this.biome, fade < 1 ? fade : 1);
+    if (fade < 1) this.drawGround(ctx, camX, world.gaps.active, this.prevBiome, 1);
+    this.drawGround(ctx, camX, world.gaps.active, this.biome, fade < 1 ? fade : 1);
+
+    // depth-sorted entities (back lane first, front lane last)
+    const list = this.list;
+    list.length = 0;
+    for (const h of world.hazards.active) list.push({ y: laneY(h.lane), t: 0, e: h });
+    for (const c of world.crates.active) list.push({ y: laneY(c.lane), t: 1, e: c });
+    for (const it of world.items.active) list.push({ y: laneY(it.lf), t: 2, e: it });
+    const feet = laneY(player.laneF);
+    list.push({ y: feet + 0.5, t: 3, e: player });
+    list.sort((a, b) => a.y - b.y);
+    for (const o of list) {
+      if (o.t === 0) this.drawHazard(ctx, o.e, camX, time);
+      else if (o.t === 1) this.drawCrateEnt(ctx, o.e, camX, time);
+      else if (o.t === 2) this.drawItem(ctx, o.e, camX, time);
+      else this.drawHero(ctx, game, feet, time);
     }
-    this.drawLayersOnly(ctx, camX, this.biome, this.fade < 1 ? this.fade : 1);
+    particles.draw(ctx, camX, this);
 
-    // ground
-    if (this.fade < 1) this.drawGround(ctx, camX, world.gaps.active, this.prevBiome, 1);
-    this.drawGround(ctx, camX, world.gaps.active, this.biome, this.fade < 1 ? this.fade : 1);
+    const Lr = this.getLayers(this.biome);
+    this.strip(ctx, Lr.front, camX * 1.25, V.H - 56, fade < 1 ? fade : 1);
 
-    const G = V.groundY;
-    // entities
-    for (const h of world.hazards.active) this.drawHazard(ctx, h, camX, time, game);
-    for (const c of world.crates.active) this.drawCrateEnt(ctx, c, camX, time);
-    for (const it of world.items.active) this.drawItem(ctx, it, camX, time);
-
-    // hero
-    ctx.save();
-    ctx.translate(game.heroX(), G);
-    ctx.scale(game.heroScale(), game.heroScale());
-    player.draw(ctx, 0, 0);
-    ctx.restore();
-    this.drawPowerFx(ctx, game, time);
-    particles.draw(ctx, camX, G);
-
-    // front foliage
-    const L = this.getLayers(this.biome);
-    this.strip(ctx, L.front, camX * 1.25, V.H - 150, this.fade < 1 ? this.fade : 1);
-
-    // boulder warnings (offscreen right)
     for (const b of world.hazards.active) {
       if (b.kind === 'boulder' && b.state === 'idle' && b.warn) this.drawWarn(ctx, time, b);
     }
-    // speed lines
     if (game.speedPx > 700 && game.state === 'playing') {
       ctx.strokeStyle = 'rgba(255,255,255,0.35)';
       ctx.lineWidth = 3;
-      const n = 6;
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < 6; i++) {
         const y = 80 + ((i * 97 + time * 400) % 420);
         const x = ((i * 377 - time * 2400) % (this.viewW + 200) + this.viewW + 200) % (this.viewW + 200) - 100;
         ctx.beginPath();
@@ -662,20 +671,42 @@ export class Renderer {
         ctx.stroke();
       }
     }
-    ctx.restore();
+
+    L.setTransform(1, 0, 0, 1, 0, 0);
+    this.post(L, this.low.width, this.low.height);
+
+    // upscale to the screen with hard pixels
+    const c = this.ctx;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.fillStyle = '#0e2a14';
+    c.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    c.imageSmoothingEnabled = false;
+    c.drawImage(this.low, 0, 0, this.low.width, this.low.height,
+      Math.round(this.ox * this.dpr), Math.round(this.oy * this.dpr),
+      Math.round(this.viewW * this.scale * this.dpr), Math.round(V.H * this.scale * this.dpr));
   }
 
-  drawLayersOnly(ctx, camX, name, alpha) {
-    const L = this.getLayers(name);
-    const G = V.groundY;
-    this.strip(ctx, L.far, camX * 0.1, G - 580 + 20, alpha);
-    this.strip(ctx, L.mid, camX * 0.28, G - 680 + 24, alpha);
-    this.strip(ctx, L.near, camX * 0.55, G - 330 + 14, alpha);
+  shadow(ctx, w, y, a = 0.28) {
+    ctx.fillStyle = `rgba(30,15,5,${a})`;
+    ctx.beginPath();
+    ctx.ellipse(0, y, w, Math.max(5, w * 0.16), 0, 0, 7);
+    ctx.fill();
+  }
+
+  drawHero(ctx, game, feet, time) {
+    const p = game.player;
+    ctx.save();
+    ctx.translate(this.snap(game.heroX()), this.snap(feet));
+    const hs = game.heroScale();
+    ctx.scale(hs, hs);
+    p.draw(ctx, 0, 0);
+    ctx.restore();
+    this.drawPowerFx(ctx, game, time, feet);
   }
 
   drawWarn(ctx, time, b) {
     const x = this.viewW - 60;
-    const y = V.groundY - 70;
+    const y = laneY(b.lane) - 70;
     const pul = 1 + Math.sin(time * 14) * 0.12;
     ctx.save();
     ctx.translate(x, y);
@@ -696,7 +727,6 @@ export class Renderer {
     ctx.fillStyle = '#fff';
     ctx.fillText('!', 0, 28);
     ctx.restore();
-    // arrows
     ctx.fillStyle = '#ff3a2a';
     for (let i = 0; i < 3; i++) {
       const ax = x - 80 - i * 36 + ((time * 120) % 36);
@@ -711,11 +741,14 @@ export class Renderer {
     }
   }
 
-  drawHazard(ctx, h, camX, time, game) {
+  drawHazard(ctx, h, camX, time) {
     const sx = h.x - camX;
     if (sx < -300 || sx > this.viewW + 300) return;
+    const base = laneY(h.lane);
     ctx.save();
-    ctx.translate(sx, V.groundY - h.y0);
+    ctx.translate(this.snap(sx), this.snap(base));
+    if (h.kind !== 'branch') this.shadow(ctx, h.w * 0.55, 2);
+    ctx.translate(0, -h.y0);
     if (h.kind === 'log') S.drawLog(ctx, h.w, h.h);
     else if (h.kind === 'rock') S.drawRock(ctx, h.w, h.h);
     else if (h.kind === 'barricade') S.drawBarricade(ctx, h.w, h.h, time);
@@ -726,7 +759,6 @@ export class Renderer {
       S.drawBoulder(ctx, h.w / 2, -h.rolled / (h.w / 2), time);
     }
     ctx.restore();
-    // warning chevrons on the ground ahead of low branches and barricades
     if ((h.kind === 'branch' || h.kind === 'barricade') && sx > 0 && sx < this.viewW) {
       const col = h.kind === 'branch' ? '#35e0d0' : '#ff5a3a';
       ctx.save();
@@ -737,10 +769,10 @@ export class Renderer {
       for (let i = 0; i < 2; i++) {
         const cx = sx - 150 - i * 44;
         ctx.beginPath();
-        ctx.moveTo(cx, V.groundY - 26);
-        ctx.lineTo(cx + 22, V.groundY - 12);
-        ctx.lineTo(cx, V.groundY + 2);
-        ctx.lineTo(cx - 8, V.groundY - 12);
+        ctx.moveTo(cx, base - 26);
+        ctx.lineTo(cx + 22, base - 12);
+        ctx.lineTo(cx, base + 2);
+        ctx.lineTo(cx - 8, base - 12);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
@@ -753,7 +785,9 @@ export class Renderer {
     const sx = c.x - camX;
     if (sx < -150 || sx > this.viewW + 150) return;
     ctx.save();
-    ctx.translate(sx, V.groundY - c.y0);
+    ctx.translate(this.snap(sx), this.snap(laneY(c.lane)));
+    this.shadow(ctx, c.w * 0.6, 2);
+    ctx.translate(0, -c.y0);
     if (c.kind === 'bouncy' && c.squash > 0) {
       const k = 1 - c.squash / 0.35;
       ctx.scale(1 + Math.sin(k * Math.PI) * 0.25, 1 - Math.sin(k * Math.PI) * 0.4);
@@ -771,8 +805,15 @@ export class Renderer {
     const sx = it.x - camX;
     if (sx < -80 || sx > this.viewW + 80) return;
     const bob = it.state === 'idle' ? Math.sin(time * 3.2 + it.phase) * 6 : 0;
+    const ly = laneY(it.lf);
+    // small ground shadow shows which lane a floating item is in
     ctx.save();
-    ctx.translate(sx, V.groundY - it.y - bob);
+    ctx.translate(this.snap(sx), this.snap(ly));
+    const sc = Math.max(0.4, 1 - it.y / 520);
+    this.shadow(ctx, 22 * sc, 2, 0.22);
+    ctx.restore();
+    ctx.save();
+    ctx.translate(this.snap(sx), this.snap(ly - it.y - bob));
     if (it.kind === 'fruit') {
       ctx.rotate(Math.sin(time * 2.5 + it.phase) * 0.18);
       S.drawFruit(ctx, time);
@@ -782,11 +823,11 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawPowerFx(ctx, game, time) {
+  drawPowerFx(ctx, game, time, feet) {
     const t = game.powerups.timers;
     const p = game.player;
     const x = game.heroX();
-    const y = V.groundY - p.y - (p.sliding ? 28 : 62);
+    const y = feet - p.y - (p.sliding ? 28 : 62);
     const warn = (v) => v < 2 && Math.sin(time * 20) > 0;
     if (t.shield > 0 && !warn(t.shield)) {
       ctx.save();

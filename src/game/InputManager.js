@@ -4,10 +4,10 @@ import { store } from '../config/settings.js';
 // left, right, jump, slide, pause, restart.
 
 const KEYMAP = {
-  ArrowLeft: 'left', KeyA: 'left',
-  ArrowRight: 'right', KeyD: 'right',
-  ArrowUp: 'jump', KeyW: 'jump', Space: 'jump',
-  ArrowDown: 'slide', KeyS: 'slide',
+  ArrowUp: 'laneUp', KeyW: 'laneUp',
+  ArrowDown: 'laneDown', KeyS: 'laneDown',
+  Space: 'jump', ArrowRight: 'jump', KeyD: 'jump',
+  ArrowLeft: 'slide', KeyA: 'slide', ShiftLeft: 'slide', ShiftRight: 'slide',
   Escape: 'pause', KeyP: 'pause',
   KeyR: 'restart',
   Enter: 'confirm',
@@ -20,7 +20,7 @@ export class InputManager {
     window.addEventListener('keydown', (e) => {
       const a = KEYMAP[e.code];
       if (!a) return;
-      if (['jump', 'slide', 'left', 'right'].includes(a) || e.code === 'Space') e.preventDefault();
+      if (['jump', 'slide', 'laneUp', 'laneDown'].includes(a) || e.code === 'Space') e.preventDefault();
       if (e.repeat && a !== 'slide') return;
       this.held.add(a);
       this.onAction(a, 'key');
@@ -30,8 +30,8 @@ export class InputManager {
       if (a) this.held.delete(a);
     });
 
-    // touch / mouse on the canvas: tap right half = jump, left half = slide,
-    // swipe up/down also works. Mouse click = jump.
+    // touch / mouse on the canvas: swipe up/down = change lane, tap right half = jump,
+    // tap left half = slide. Mouse click = jump.
     let sx = 0, sy = 0, sid = null, fired = false;
     const threshold = () => 28 / Math.max(0.4, store.settings.swipe);
     target.addEventListener('pointerdown', (e) => {
@@ -49,7 +49,7 @@ export class InputManager {
       const dy = e.clientY - sy;
       if (Math.abs(dy) < threshold() || Math.abs(dy) < Math.abs(e.clientX - sx)) return;
       fired = true;
-      this.onAction(dy < 0 ? 'jump' : 'slide', 'touch');
+      this.onAction(dy < 0 ? 'laneUp' : 'laneDown', 'touch');
     });
     target.addEventListener('pointerup', (e) => {
       if (e.pointerId !== sid) return;

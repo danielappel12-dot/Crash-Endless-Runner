@@ -2,10 +2,13 @@ import { CONFIG } from '../config/settings.js';
 import { Pool } from './Pool.js';
 
 // Pooled world entities (hazards, crates, collectibles, ravine gaps) and the
-// pattern-based layout generator. SAFETY RULES:
-//  * every hazard is individually avoidable (jump, slide, or hop on top)
-//  * a recovery space of at least one full jump (plus reaction time) follows every hazard
-//  * ravine gaps are always narrower than a jump at the speed they were generated for
+// pattern-based layout generator. The track has three depth lanes (0 back, 1 middle,
+// 2 front). SAFETY RULES:
+//  * every row of hazards leaves at least one lane free, and the free lane of one
+//    row is at most one lane away from the free lane of the previous row
+//  * every hazard is also individually beatable by jumping (or sliding for branches)
+//  * a recovery space of one full jump (plus reaction time) follows every hazard row
+//  * ravine gaps (full width) are narrower than a jump at the speed they were made for
 //  * boulder zones contain nothing else except fruit
 
 const V = CONFIG.view;
@@ -29,7 +32,7 @@ export const HAZ = {
   log: { w: 136, h: 62, y0: 0, platform: true },
   rock: { w: 112, h: 140, y0: 0, platform: false },
   barricade: { w: 106, h: 104, y0: 0, platform: false },
-  branch: { w: 160, h: 520, y0: 104, platform: false },
+  branch: { w: 150, h: 520, y0: 104, platform: false },
   boulder: { w: 116, h: 116, y0: 0, platform: false },
 };
 
@@ -51,29 +54,30 @@ export class World {
     this.nextX = 1100;
     this.lastKind = '';
     this.boulderCooldown = 0;
+    this.safe = 1;
     this.time = 0;
   }
 
   // --------------------------------------------------------------- spawners
-  hazard(kind, x) {
+  hazard(kind, x, lane = 1) {
     const s = HAZ[kind];
     const h = this.hazards.acquire();
-    h.kind = kind; h.x = x; h.w = s.w; h.h = s.h; h.y0 = s.y0; h.platform = s.platform;
+    h.kind = kind; h.x = x; h.lane = lane; h.w = s.w; h.h = s.h; h.y0 = s.y0; h.platform = s.platform;
     h.passed = false; h.state = 'idle'; h.rolled = 0; h.warn = 0;
     return h;
   }
 
-  crate(kind, x, y0 = 0) {
+  crate(kind, x, lane = 1, y0 = 0) {
     const c = this.crates.acquire();
-    c.kind = kind; c.x = x; c.y0 = y0; c.w = c.h = CONFIG.crates.size;
+    c.kind = kind; c.x = x; c.lane = lane; c.y0 = y0; c.w = c.h = CONFIG.crates.size;
     c.platform = kind === 'metal'; c.armed = false; c.fuse = CONFIG.crates.tntFuse; c.flash = 0;
     c.squash = 0; c.passed = false; c.tick = 0;
     return c;
   }
 
-  item(kind, x, y) {
+  item(kind, x, y, lane = 1) {
     const it = this.items.acquire();
-    it.kind = kind; it.x = x; it.y = y; it.state = 'idle'; it.t = 0; it.vx = it.vy = 0;
+    it.kind = kind; it.x = x; it.y = y; it.lane = lane; it.lf = lane; it.state = 'idle'; it.t = 0; it.vx = it.vy = 0;
     it.phase = Math.random() * 6;
     return it;
   }
@@ -84,19 +88,19 @@ export class World {
     return g;
   }
 
-  fruit(x, y) { return this.item('fruit', x, y); }
+  fruit(x, y, lane = 1) { return this.item('fruit', x, y, lane); }
 
-  pop(x, y, count) {
+  pop(x, y, count, lane = 1) {
     for (let i = 0; i < count; i++) {
-      const f = this.fruit(x, y);
+      const f = this.fruit(x, y, lane);
       f.state = 'pop';
       f.vx = rnd(-160, 340);
       f.vy = rnd(560, 880);
     }
   }
 
-  popItem(kind, x, y) {
-    const it = this.item(kind, x, y);
+  popItem(kind, x, y, lane = 1) {
+    const it = this.item(kind, x, y, lane);
     it.state = 'pop';
     it.vx = 80;
     it.vy = 800;
@@ -109,6 +113,12 @@ export class World {
   }
 
   // --------------------------------------------------------------- layout
+  nextSafe(diff) {
+    const move = chance(0.35 + 0.3 * diff) ? (chance(0.5) ? -1 : 1) : 0;
+    this.safe = clamp(this.safe + move, 0, 2);
+    return this.safe;
+  }
+
   ensure(camX, speedMps, distance) {
     const diff = clamp(distance / CONFIG.speed.distanceToMax, 0, 1);
     const level = distance / CONFIG.speed.levelEvery + 1;
@@ -121,79 +131,87 @@ export class World {
       let w = 0;
       let hazardous = false;
       const table = {
-        fruitLine: 3, fruitArc: 2.2, crateRun: 2.4,
+        fruitLine: 3, fruitArc: 2, crateRun: 2.4,
         bounce: distance > 120 ? 1.2 : 0,
         single: hazardsOn ? 4 + 4 * diff : 0,
         double: hazardsOn ? 1 + 3.5 * diff : 0,
-        gap: hazardsOn ? 1.5 + 2.5 * diff : 0,
+        gap: hazardsOn ? 1.2 + 2 * diff : 0,
         branch: hazardsOn ? 1.6 + 1.5 * diff : 0,
         boulder: hazardsOn && level >= CONFIG.difficulty.boulderFromLevel && this.boulderCooldown <= 0 ? 1.2 + 1.5 * diff : 0,
       };
       if (this.lastKind === 'hazard') {
-        // after a hazard we still need breathing room: only calm patterns
-        table.single = table.double = table.gap = table.branch = table.boulder = 0;
-        table.bounce = 0;
+        table.single = table.double = table.gap = table.branch = table.boulder = table.bounce = 0;
       }
       const kind = weighted(table);
       this.boulderCooldown -= 1;
       switch (kind) {
         case 'fruitLine': w = this.pFruitLine(start, diff); break;
-        case 'fruitArc': w = this.pFruitArc(start, spx); break;
-        case 'crateRun': w = this.pCrateRun(start); break;
-        case 'bounce': w = this.pBounce(start, spx); hazardous = true; break;
+        case 'fruitArc': w = this.pFruitArc(start, spx, diff); break;
+        case 'crateRun': w = this.pCrateRun(start, diff); break;
+        case 'bounce': w = this.pBounce(start, spx, diff); hazardous = true; break;
         case 'single': w = this.pSingle(start, spx, diff); hazardous = true; break;
         case 'double': w = this.pDouble(start, spx, diff); hazardous = true; break;
         case 'gap': w = this.pGap(start, spx, diff, distance); hazardous = true; break;
         case 'branch': w = this.pBranch(start, spx, diff, distance); hazardous = true; break;
-        case 'boulder': w = this.pBoulder(start, spx); hazardous = true; this.boulderCooldown = 4; break;
+        case 'boulder': w = this.pBoulder(start, spx, diff); hazardous = true; this.boulderCooldown = 4; break;
       }
       this.lastKind = hazardous ? 'hazard' : 'calm';
       this.nextX = start + w + (hazardous ? rest : rnd(120, 260));
-      // power-up now and then, in the calm gap
       if (distance > 80 && chance(0.1)) {
-        this.item(pick(['magnet', 'shield', 'multiplier']), this.nextX - rest * 0.5 + 40, 120);
+        this.item(pick(['magnet', 'shield', 'multiplier']), this.nextX - rest * 0.5 + 40, 120, this.safe);
       }
     }
   }
 
   pFruitLine(x, diff) {
     const n = 5 + ((Math.random() * 5) | 0);
-    const wave = chance(0.5);
-    for (let i = 0; i < n; i++) this.fruit(x + i * 68, 64 + (wave ? Math.sin(i * 0.8) * 34 : 0));
+    const wave = chance(0.4);
+    let lane = this.safe;
+    const switchAt = chance(0.5) ? ((n / 2) | 0) : 99;
+    for (let i = 0; i < n; i++) {
+      if (i === switchAt) lane = this.nextSafe(diff);
+      this.fruit(x + i * 68, 64 + (wave ? Math.sin(i * 0.8) * 34 : 0), lane);
+    }
     return n * 68;
   }
 
-  arcAt(x0, span, base, peak, n = 7) {
+  arcAt(x0, span, base, peak, n, lane) {
     for (let k = 0; k < n; k++) {
       const t = k / (n - 1);
-      this.fruit(x0 + t * span, base + Math.sin(t * Math.PI) * (peak - base));
+      this.fruit(x0 + t * span, base + Math.sin(t * Math.PI) * (peak - base), lane);
     }
   }
 
-  pFruitArc(x, spx) {
+  pFruitArc(x, spx, diff) {
     const span = clamp(spx * 0.62, 380, 620);
-    this.arcAt(x, span, 70, 270);
-    if (chance(0.25)) this.item(pick(['green', 'green', 'purple']), x + span / 2, 300);
+    const lane = this.nextSafe(diff);
+    this.arcAt(x, span, 70, 270, 7, lane);
+    if (chance(0.25)) this.item(pick(['green', 'green', 'purple']), x + span / 2, 300, lane);
     return span;
   }
 
-  pCrateRun(x) {
+  pCrateRun(x, diff) {
     const n = 2 + ((Math.random() * 3) | 0);
     const k = weighted({ fruit: 5, mystery: 2 });
-    for (let i = 0; i < n; i++) this.crate(i === 1 && chance(0.4) ? 'mystery' : k, x + 60 + i * 96);
-    if (chance(0.5)) this.arcAt(x + 40, n * 96 + 40, 150, 230, 5);
+    const lane = pick([0, 1, 2]);
+    for (let i = 0; i < n; i++) this.crate(i === 1 && chance(0.4) ? 'mystery' : k, x + 60 + i * 96, lane);
+    if (chance(0.5)) this.arcAt(x + 40, n * 96 + 40, 150, 230, 5, lane);
+    // keep the free lane's fruit going alongside
+    const o = this.nextSafe(diff);
+    if (o !== lane) for (let i = 0; i < n + 1; i++) this.fruit(x + 40 + i * 80, 64, o);
     return n * 96 + 140;
   }
 
-  pBounce(x, spx) {
-    this.crate('bouncy', x + 60);
+  pBounce(x, spx, diff) {
+    const lane = this.nextSafe(diff);
+    this.crate('bouncy', x + 60, lane);
     const v = CONFIG.crates.bounceVelocity, g = CONFIG.player.gravity;
     for (let k = 1; k <= 6; k++) {
       const t = k * 0.14;
       const y = CONFIG.crates.size + v * t - 0.5 * g * t * t;
-      if (y > 150) this.fruit(x + 60 + spx * t, y + 20);
+      if (y > 150) this.fruit(x + 60 + spx * t, y + 20, lane);
     }
-    if (chance(0.35)) this.item('blue', x + 60 + spx * 0.5, CONFIG.crates.size + v * 0.5 - 0.5 * g * 0.25 + 30);
+    if (chance(0.35)) this.item('blue', x + 60 + spx * 0.5, CONFIG.crates.size + v * 0.5 - 0.5 * g * 0.25 + 30, lane);
     return spx * 0.9;
   }
 
@@ -201,43 +219,54 @@ export class World {
     return weighted({ log: 4, rock: 2.5, barricade: 2.5, metal: 1.4 + diff, tnt: diff > 0.06 ? 2 : 0 });
   }
 
-  place(kind, x) {
-    if (kind === 'metal') return this.crate('metal', x);
-    if (kind === 'tnt') return this.crate('tnt', x);
-    return this.hazard(kind, x);
+  place(kind, x, lane) {
+    if (kind === 'metal') return this.crate('metal', x, lane);
+    if (kind === 'tnt') return this.crate('tnt', x, lane);
+    return this.hazard(kind, x, lane);
+  }
+
+  // one row of hazards: blocked lanes everywhere except the free lane `free`
+  row(hx, free, diff, kinds) {
+    const blocked = [0, 1, 2].filter((l) => l !== free);
+    const lanes = kinds || (chance(0.25 + 0.45 * diff) ? blocked : [pick(blocked)]);
+    for (const l of lanes) {
+      const kind = this.hazardKind(diff);
+      this.place(kind, hx, l);
+      // jump-over fruit arc / trophies above beatable hazards
+      if (kind === 'log' || kind === 'rock' || kind === 'barricade') this.arcAt(hx - 150, 300, 120, kind === 'rock' ? 300 : 250, 5, l);
+      else if (kind === 'metal') {
+        this.fruit(hx - 20, CONFIG.crates.size + 50, l);
+        this.fruit(hx + 30, CONFIG.crates.size + 50, l);
+      }
+    }
+    return lanes;
   }
 
   pSingle(x, spx, diff) {
-    const kind = this.hazardKind(diff);
-    const hx = x + 360;
-    this.place(kind, hx);
-    // fruit trail leading in, and a jump arc over
-    for (let i = 0; i < 4; i++) this.fruit(x + i * 70, 64);
-    if (kind === 'metal') {
-      // fruit on top rewards hopping up
-      this.fruit(hx - 20, CONFIG.crates.size + 50);
-      this.fruit(hx + 30, CONFIG.crates.size + 50);
-    } else if (kind !== 'tnt') {
-      this.arcAt(hx - 150, 300, 120, kind === 'rock' ? 300 : 250, 5);
-    }
-    const out = 520;
+    const prev = this.safe;
+    const free = this.nextSafe(diff);
+    const hx = x + 380;
+    for (let i = 0; i < 4; i++) this.fruit(x + i * 70, 64, prev);
+    const lanes = this.row(hx, free, diff);
+    for (let i = 0; i < 4; i++) this.fruit(hx - 120 + i * 80, 64, free);
     if (chance(0.3 + 0.2 * diff)) {
+      const l = pick(lanes);
       const r = chance(0.14 + 0.1 * diff) ? 'relic' : weighted({ green: 55, purple: 30 + 10 * diff, blue: 10 + 15 * diff });
-      this.item(r, hx, kind === 'rock' ? 330 : 290);
+      this.item(r, hx, 300, l);
     }
-    return out;
+    return 520;
   }
 
   pDouble(x, spx, diff) {
     const air = spx * 0.72;
-    const k1 = this.hazardKind(diff * 0.5), k2 = this.hazardKind(diff * 0.5);
-    const hx1 = x + 340;
-    const hx2 = hx1 + air + 240; // jump, land, jump again
-    this.place(k1, hx1);
-    this.place(k2, hx2);
-    for (let i = 0; i < 3; i++) this.fruit(x + i * 70, 64);
-    if (k1 !== 'tnt' && k1 !== 'metal') this.arcAt(hx1 - 140, 280, 120, 250, 5);
-    if (k2 !== 'tnt' && k2 !== 'metal') this.arcAt(hx2 - 140, 280, 120, 250, 5);
+    const hx1 = x + 360;
+    const hx2 = hx1 + air + 260;
+    const f1 = this.nextSafe(diff);
+    this.row(hx1, f1, diff * 0.6);
+    const f2 = this.nextSafe(diff);
+    this.row(hx2, f2, diff * 0.6);
+    for (let i = 0; i < 3; i++) this.fruit(x + i * 70, 64, f1);
+    for (let i = 0; i < 4; i++) this.fruit(hx1 + 160 + i * ((hx2 - hx1 - 320) / 3), 64, i < 2 ? f1 : f2);
     return hx2 - x + 160;
   }
 
@@ -246,31 +275,40 @@ export class World {
     const width = 190 + sp * 130;
     const g0 = x + 420;
     this.gap(g0, g0 + width);
-    for (let i = 0; i < 3; i++) this.fruit(x + i * 70, 64);
-    this.arcAt(g0 - 90, width + 180, 80, 270, 7);
+    const lane = this.nextSafe(diff);
+    for (let i = 0; i < 3; i++) this.fruit(x + i * 70, 64, lane);
+    this.arcAt(g0 - 90, width + 180, 80, 270, 7, lane);
     if (distance > 100 && chance(0.4 + 0.3 * diff)) {
       const relic = chance(0.14 + 0.1 * diff);
-      this.item(relic ? 'relic' : weighted({ green: 40, purple: 40, blue: 20 }), g0 + width / 2, 310);
+      this.item(relic ? 'relic' : weighted({ green: 40, purple: 40, blue: 20 }), g0 + width / 2, 310, lane);
     }
     return 420 + width + 200;
   }
 
   pBranch(x, spx, diff, distance) {
     const bx = x + 420;
-    this.hazard('branch', bx);
-    for (let i = 0; i < 6; i++) this.fruit(bx - 170 + i * 66, 44);
-    if (distance > 100 && chance(0.35 + 0.25 * diff)) {
-      this.item(weighted({ green: 55, purple: 30, blue: 15 }), bx, 40);
+    const free = this.nextSafe(diff);
+    const blocked = [0, 1, 2].filter((l) => l !== free);
+    const lanes = chance(0.3 + 0.4 * diff) ? blocked : [pick(blocked)];
+    for (const l of lanes) {
+      this.hazard('branch', bx, l);
+      for (let i = 0; i < 4; i++) this.fruit(bx - 120 + i * 80, 44, l);
     }
-    return 640;
+    for (let i = 0; i < 4; i++) this.fruit(bx - 120 + i * 80, 64, free);
+    if (distance > 100 && chance(0.35 + 0.25 * diff)) {
+      this.item(weighted({ green: 55, purple: 30, blue: 15 }), bx, 40, pick(lanes));
+    }
+    return 620;
   }
 
-  pBoulder(x, spx) {
-    // a long calm zone: the boulder starts at the far end and rolls toward the hero
+  pBoulder(x, spx, diff) {
+    // a long calm zone: boulders start at the far end and roll toward the hero
     const len = 1900;
-    const b = this.hazard('boulder', x + len);
-    b.state = 'idle';
-    for (let i = 0; i < 12; i++) this.fruit(x + 120 + i * 130, 64 + (i % 3 === 1 ? 46 : 0));
+    const free = this.nextSafe(0);
+    const blocked = [0, 1, 2].filter((l) => l !== free);
+    const lanes = diff > 0.4 && chance(0.5) ? blocked : [pick(blocked)];
+    for (const l of lanes) this.hazard('boulder', x + len, l).state = 'idle';
+    for (let i = 0; i < 12; i++) this.fruit(x + 120 + i * 130, 64 + (i % 3 === 1 ? 46 : 0), free);
     return len + 200;
   }
 
@@ -278,7 +316,6 @@ export class World {
   update(dt, ctx) {
     const { camX, speedPx, player, playerX, time, cb } = ctx;
     this.time = time;
-    // boulders
     for (const b of this.hazards.active) {
       if (b.kind !== 'boulder') continue;
       const dist = b.x - camX;
@@ -291,7 +328,6 @@ export class World {
         b.warn = 0;
       }
     }
-    // TNT + bouncy crates
     for (const c of this.crates.active) {
       if (c.kind === 'tnt') {
         if (!c.armed) {
@@ -315,14 +351,14 @@ export class World {
         if (c.squash <= 0) this.crates.release(c);
       }
     }
-    // items
     const pcx = playerX, pcy = player.y + player.h / 2;
+    const gap = V.laneGap;
     for (let i = this.items.active.length - 1; i >= 0; i--) {
       const it = this.items.active[i];
       it.t += dt;
       if (it.state === 'idle') {
         if (ctx.magnet > 0 && it.kind === 'fruit') {
-          const dx = it.x - pcx, dy = it.y - pcy;
+          const dx = it.x - pcx, dy = it.y - pcy + (it.lf - player.laneF) * -gap;
           if (dx * dx + dy * dy < ctx.magnet * ctx.magnet) it.state = 'home';
         }
       }
@@ -339,9 +375,9 @@ export class World {
         const step = Math.min(d, sp * dt);
         it.x += (dx / d) * step;
         it.y += (dy / d) * step;
+        it.lf += (player.laneF - it.lf) * Math.min(1, dt * 14);
       }
     }
-    // cull things far behind
     const behind = camX - 260;
     for (const pool of [this.hazards, this.crates, this.items]) {
       for (let i = pool.active.length - 1; i >= 0; i--) {
