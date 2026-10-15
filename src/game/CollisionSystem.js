@@ -34,6 +34,11 @@ export class CollisionSystem {
     };
     for (const e of world.hazards.active) test(e);
     for (const e of world.crates.active) test(e);
+    for (const pl of world.platforms.active) {
+      if (!this.sameLane(p, pl)) continue;
+      if (px + p.hw * 0.8 < pl.x - pl.w / 2 || px - p.hw * 0.8 > pl.x + pl.w / 2) continue;
+      if (p.y >= pl.top - PLATFORM_TOL && pl.top > ground) ground = pl.top;
+    }
     return ground;
   }
 
@@ -80,14 +85,44 @@ export class CollisionSystem {
       }
     }
 
+    // spin attack: smash crates and enemies in reach
+    const spinning = p.spinTimer > 0;
+    const reach = CONFIG.player.spinReach;
+    const vOverlap = (e) => p.y + p.h + 20 > e.y0 && p.y - 20 < e.y0 + e.h;
+    if (spinning) {
+      for (let i = world.crates.active.length - 1; i >= 0; i--) {
+        const c = world.crates.active[i];
+        if (c.kind === 'metal' || c.kind === 'tnt' || !this.sameLane(p, c)) continue;
+        if (Math.abs(c.x - px) < reach + c.w / 2 && vOverlap(c)) cb.smash(c);
+      }
+    }
+    // enemies
+    for (let i = world.enemies.active.length - 1; i >= 0; i--) {
+      const e = world.enemies.active[i];
+      if (Math.abs(e.x - px) > 300 || !this.sameLane(p, e)) continue;
+      if (spinning && Math.abs(e.x - px) < reach + e.w / 2 && vOverlap(e)) {
+        cb.enemyKill(e, 'spin');
+        continue;
+      }
+      // generous stomp: feet coming down near the enemy's head (one frame of travel of slack)
+      const top = e.y0 + e.h;
+      const stomp = e.stomp && p.vy < 0 && !p.grounded && p.y >= top - 44 && p.y <= top + 24 &&
+        Math.abs(e.x - px) < e.w / 2 + p.hw + g.speedPx * 0.03;
+      if (stomp) cb.enemyKill(e, 'stomp');
+      else if (overlap(e, 6)) {
+        if (g.powerups.invincible) cb.enemyKill(e, 'power');
+        else cb.enemyHit(e);
+      }
+    }
+
     const cy0 = p.y - 26, cy1 = p.y + p.h + 26;
     for (let i = world.items.active.length - 1; i >= 0; i--) {
       const it = world.items.active[i];
-      const rad = it.kind === 'fruit' ? 30 : it.kind === 'magnet' || it.kind === 'shield' || it.kind === 'multiplier' ? 40 : 38;
+      const rad = it.kind === 'fruit' ? 30 : it.kind === 'magnet' || it.kind === 'mask' || it.kind === 'multiplier' ? 40 : 38;
       if (!this.sameLane(p, it)) continue;
       if (it.x + rad < r.x0 || it.x - rad > r.x1) continue;
       if (it.y < cy0 - 4 || it.y > cy1 + 4) continue;
-      if (it.kind === 'magnet' || it.kind === 'shield' || it.kind === 'multiplier') cb.powerup(it);
+      if (it.kind === 'magnet' || it.kind === 'mask' || it.kind === 'multiplier') cb.powerup(it);
       else cb.collect(it);
     }
   }

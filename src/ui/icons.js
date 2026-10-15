@@ -41,6 +41,7 @@ export const ICON = {
   relic: make((c) => { c.translate(0, 6); S.drawRelic(c, 0); }, 20, 110),
   heart: make(drawHeart, 20, 76),
   magnet: make((c) => S.drawPowerup(c, 'magnet', 0), 22, 110),
-  shield: make((c) => S.drawPowerup(c, 'shield', 0), 22, 110),
+  mask: make((c) => { c.translate(0, 12); S.drawMask(c, 0, false); }, 24, 118),
+  maskGold: make((c) => { c.translate(0, 12); S.drawMask(c, 0, true); }, 24, 118),
   multiplier: make((c) => S.drawPowerup(c, 'multiplier', 0), 22, 110),
 };

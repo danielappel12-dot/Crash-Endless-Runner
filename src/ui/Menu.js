@@ -22,17 +22,19 @@ export class Menu {
         <div class="keys">
           <div><kbd>W</kbd><kbd>↑</kbd></div><div>Move to the lane behind</div>
           <div><kbd>S</kbd><kbd>↓</kbd></div><div>Move to the lane in front</div>
-          <div><kbd>Space</kbd><kbd>D</kbd><kbd>→</kbd></div><div>Jump (land on bouncy crates to launch!)</div>
+          <div><kbd>Space</kbd><kbd>D</kbd><kbd>→</kbd></div><div>Jump (hold for a higher jump, tap for a hop)</div>
           <div><kbd>A</kbd><kbd>←</kbd><kbd>Shift</kbd></div><div>Slide (hold to keep sliding; in mid-air: dive)</div>
+          <div><kbd>J</kbd><kbd>E</kbd><kbd>X</kbd></div><div>Spin attack: smashes crates, defeats enemies</div>
           <div><kbd>Esc</kbd></div><div>Pause</div>
           <div><kbd>R</kbd></div><div>Restart after game over</div>
-          <div>Touch</div><div>Swipe up/down = change lane · tap right = jump · tap left = slide · or use the buttons</div>
+          <div>Touch</div><div>Swipe up/down = change lane · tap right = jump · tap left = slide · or use the buttons (incl. SPIN)</div>
         </div>
         <h3>HAZARDS</h3>
         <ul>
           <li>The track has <b>3 lanes</b>. Hazards never block all of them: dodge sideways or jump.</li>
           <li><b>Logs, rocks &amp; barricades</b> – change lane or jump. Hop onto logs and iron crates.</li>
-          <li><b>Low branches</b> – slide under or change lane. <b>Ravines</b> – jump across (every lane).</li>
+          <li><b>Low branches</b> – slide under or change lane. <b>Ravines</b> – jump across (every lane); some have stepping-stone islands.</li>
+          <li><b>Critters:</b> beetles and bats can be <b>stomped</b> from above or <b>spun</b>. Spiky urchins can only be spun or dodged.</li>
           <li><b>Rolling boulders</b> – a red ! shows the lane they come down. Dodge or jump.</li>
           <li><b>TNT crates</b> light a fuse as you approach – leave the lane or jump the blast!</li>
         </ul>
@@ -40,7 +42,8 @@ export class Menu {
         <ul>
           <li>Fruit crates and <b>?</b> mystery crates burst into fruit. Green arrow crates bounce you sky-high.</li>
           <li>Gems: <b style="color:#2cff7a">green</b>, <b style="color:#b04cff">purple</b>, <b style="color:#3ca8ff">blue</b> and the legendary <b style="color:#ffcf2a">golden relic</b>.</li>
-          <li>Power-ups: <b>Magnet</b> pulls fruit, <b>Shield</b> absorbs a hit, <b>x2</b> doubles fruit.</li>
+          <li><b>Spirit masks</b> float beside you and each absorbs one hit. Grab <b>3</b> for a burst of golden invincibility! Also: <b>Magnet</b> pulls fruit, <b>x2</b> doubles fruit.</li>
+          <li>Jump onto <b>floating platforms</b> for bonus fruit and gems.</li>
           <li>You have 3 hearts. A hit gives a short grace period.</li>
         </ul>
         <div class="row"><button class="btn small" data-a="back">Back</button></div>

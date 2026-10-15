@@ -14,6 +14,7 @@ export class HUD {
         <div class="hud-score chunk" data-k="score">0</div>
         <div class="hud-sub chunk"><span>BEST <b data-k="best">0</b></span></div>
         <div class="hearts" data-k="hearts"></div>
+        <div class="masks" data-k="masks"></div>
       </div>
       <div class="panel hud-center">
         <div class="hud-dist chunk"><span data-k="dist">0</span>m</div>
@@ -39,7 +40,7 @@ export class HUD {
       <div class="flash" data-k="flash"></div>
       <div class="touch">
         <div class="grp"><button class="tbtn" data-a="laneUp">▲</button><button class="tbtn" data-a="laneDown">▼</button></div>
-        <div class="grp"><button class="tbtn wide" data-a="slide">SLIDE</button><button class="tbtn wide" data-a="jump">JUMP</button></div>
+        <div class="grp"><button class="tbtn wide" data-a="slide">SLIDE</button><button class="tbtn wide" data-a="spin">SPIN</button><button class="tbtn wide" data-a="jump">JUMP</button></div>
       </div>
       <div class="countdown hidden" data-k="countdown"></div>`;
     root.appendChild(el);
@@ -55,13 +56,22 @@ export class HUD {
       this.q.hearts.appendChild(h);
       this.hearts.push(h);
     }
+    // spirit-mask slots
+    this.maskSlots = [];
+    for (let i = 0; i < CONFIG.powerups.mask.needed; i++) {
+      const m = document.createElement('div');
+      m.className = 'maskslot';
+      m.innerHTML = ICON.mask;
+      this.q.masks.appendChild(m);
+      this.maskSlots.push(m);
+    }
     // power-up chips
     this.chips = {};
     for (const [k, v] of Object.entries(POWERUPS)) {
       const c = document.createElement('div');
       c.className = 'pu hidden';
       c.style.setProperty('--c', v.css);
-      c.innerHTML = `<div class="ic">${ICON[k]}</div><div><div class="nm chunk">${v.label}</div><div class="bar"><i></i></div></div>`;
+      c.innerHTML = `<div class="ic">${k === 'mask' ? ICON.maskGold : ICON[k]}</div><div><div class="nm chunk">${v.label}</div><div class="bar"><i></i></div></div>`;
       this.q.pus.appendChild(c);
       this.chips[k] = { el: c, bar: c.querySelector('i') };
     }
@@ -75,7 +85,10 @@ export class HUD {
         b.classList.add('act');
         handlers.onAction(b.dataset.a, 'touch');
       });
-      const up = () => b.classList.remove('act');
+      const up = () => {
+        b.classList.remove('act');
+        if (b.dataset.a === 'jump') handlers.onAction('jumpRelease', 'touch');
+      };
       b.addEventListener('pointerup', up);
       b.addEventListener('pointerleave', up);
       b.addEventListener('pointercancel', up);
@@ -151,6 +164,7 @@ export class HUD {
       this.last.lives = s.lives;
       this.hearts.forEach((h, i) => h.classList.toggle('lost', i >= s.lives));
     }
+    this.maskSlots.forEach((m, i) => m.classList.toggle('on', i < s.masks && !(s.timers.mask > 0)));
     for (const [key, chip] of Object.entries(this.chips)) {
       const t = s.timers[key];
       chip.el.classList.toggle('hidden', !(t > 0));

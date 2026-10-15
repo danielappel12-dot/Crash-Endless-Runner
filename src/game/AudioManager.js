@@ -145,6 +145,25 @@ export class AudioManager {
   powerdown() {
     this.tone({ f: 600, f2: 200, dur: 0.3, type: 'triangle', vol: 0.14 });
   }
+  spin() {
+    this.noise({ dur: 0.3, vol: 0.2, f: 600, f2: 3200, q: 1.5, type: 'bandpass' });
+    this.tone({ f: 300, f2: 700, dur: 0.2, type: 'triangle', vol: 0.08, curve: 'lin' });
+  }
+  stomp() {
+    this.tone({ f: 260, f2: 120, dur: 0.1, type: 'square', vol: 0.18 });
+    this.tone({ f: 520, f2: 900, dur: 0.12, type: 'triangle', vol: 0.12, delay: 0.05 });
+    this.noise({ dur: 0.08, vol: 0.15, f: 1500, f2: 300 });
+  }
+  maskGet(power = false) {
+    const seq = power ? [0, 4, 7, 12, 16, 19, 24] : [0, 7, 12];
+    seq.forEach((s, i) => this.tone({ f: 523 * Math.pow(1.0595, s), dur: 0.16, type: 'triangle', vol: 0.15, delay: i * 0.06 }));
+    this.tone({ f: 130, f2: 260, dur: 0.3, type: 'sawtooth', vol: 0.06, delay: 0.05 });
+  }
+  maskBreak() {
+    this.noise({ dur: 0.3, vol: 0.25, f: 4000, f2: 600, q: 2, type: 'bandpass' });
+    this.tone({ f: 600, f2: 180, dur: 0.25, type: 'square', vol: 0.15 });
+    this.tone({ f: 300, f2: 120, dur: 0.3, type: 'triangle', vol: 0.12, delay: 0.05 });
+  }
   shieldPop() {
     this.noise({ dur: 0.25, vol: 0.25, f: 5000, f2: 800, q: 3, type: 'bandpass' });
     this.tone({ f: 900, f2: 300, dur: 0.2, type: 'sine', vol: 0.2 });

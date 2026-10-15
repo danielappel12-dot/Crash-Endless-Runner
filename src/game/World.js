@@ -36,8 +36,16 @@ export const HAZ = {
   boulder: { w: 116, h: 116, y0: 0, platform: false },
 };
 
+export const ENEMY = {
+  scuttler: { w: 88, h: 64, y0: 0, stomp: true, range: 90, speed: 110 },
+  spiky: { w: 92, h: 96, y0: 0, stomp: false, range: 0, speed: 0 },
+  bat: { w: 96, h: 62, y0: 95, stomp: true, range: 70, speed: 90 },
+};
+
 export class World {
   constructor() {
+    this.enemies = new Pool(() => ({}));
+    this.platforms = new Pool(() => ({}));
     this.hazards = new Pool(() => ({}));
     this.crates = new Pool(() => ({}));
     this.items = new Pool(() => ({}));
@@ -47,6 +55,8 @@ export class World {
   }
 
   reset() {
+    this.enemies.clear();
+    this.platforms.clear();
     this.hazards.clear();
     this.crates.clear();
     this.items.clear();
@@ -80,6 +90,21 @@ export class World {
     it.kind = kind; it.x = x; it.y = y; it.lane = lane; it.lf = lane; it.state = 'idle'; it.t = 0; it.vx = it.vy = 0;
     it.phase = Math.random() * 6;
     return it;
+  }
+
+  enemy(kind, x, lane = 1) {
+    const E = ENEMY[kind];
+    const e = this.enemies.acquire();
+    e.kind = kind; e.x = e.ox = x; e.lane = lane; e.w = E.w; e.h = E.h; e.y0 = e.by = E.y0; e.stomp = E.stomp;
+    e.range = E.range; e.speed = E.speed; e.t = Math.random() * 6; e.dir = -1; e.passed = false;
+    return e;
+  }
+
+  // one-way floating platform: you can run under it and land on top of it
+  platform(x, lane, top, w) {
+    const pl = this.platforms.acquire();
+    pl.x = x; pl.lane = lane; pl.w = w; pl.h = 26; pl.top = top; pl.y0 = top - 26;
+    return pl;
   }
 
   gap(x0, x1) {
@@ -136,11 +161,13 @@ export class World {
         single: hazardsOn ? 4 + 4 * diff : 0,
         double: hazardsOn ? 1 + 3.5 * diff : 0,
         gap: hazardsOn ? 1.2 + 2 * diff : 0,
+        stones: distance > 150 ? 0.9 + 1.8 * diff : 0,
+        highRoad: distance > 60 ? 1.8 : 0,
         branch: hazardsOn ? 1.6 + 1.5 * diff : 0,
         boulder: hazardsOn && level >= CONFIG.difficulty.boulderFromLevel && this.boulderCooldown <= 0 ? 1.2 + 1.5 * diff : 0,
       };
       if (this.lastKind === 'hazard') {
-        table.single = table.double = table.gap = table.branch = table.boulder = table.bounce = 0;
+        table.single = table.double = table.gap = table.branch = table.boulder = table.bounce = table.stones = 0;
       }
       const kind = weighted(table);
       this.boulderCooldown -= 1;
@@ -152,13 +179,15 @@ export class World {
         case 'single': w = this.pSingle(start, spx, diff); hazardous = true; break;
         case 'double': w = this.pDouble(start, spx, diff); hazardous = true; break;
         case 'gap': w = this.pGap(start, spx, diff, distance); hazardous = true; break;
+        case 'stones': w = this.pStones(start, spx, diff, distance); hazardous = true; break;
+        case 'highRoad': w = this.pHighRoad(start, spx, diff, distance); break;
         case 'branch': w = this.pBranch(start, spx, diff, distance); hazardous = true; break;
         case 'boulder': w = this.pBoulder(start, spx, diff); hazardous = true; this.boulderCooldown = 4; break;
       }
       this.lastKind = hazardous ? 'hazard' : 'calm';
       this.nextX = start + w + (hazardous ? rest : rnd(120, 260));
       if (distance > 80 && chance(0.1)) {
-        this.item(pick(['magnet', 'shield', 'multiplier']), this.nextX - rest * 0.5 + 40, 120, this.safe);
+        this.item(pick(['magnet', 'mask', 'mask', 'multiplier']), this.nextX - rest * 0.5 + 40, 120, this.safe);
       }
     }
   }
@@ -216,10 +245,14 @@ export class World {
   }
 
   hazardKind(diff) {
-    return weighted({ log: 4, rock: 2.5, barricade: 2.5, metal: 1.4 + diff, tnt: diff > 0.06 ? 2 : 0 });
+    return weighted({
+      log: 3.5, rock: 2.2, barricade: 2.2, metal: 1.2 + diff, tnt: diff > 0.06 ? 1.8 : 0,
+      scuttler: 3, spiky: diff > 0.1 ? 1.6 : 0, bat: diff > 0.06 ? 1.6 : 0,
+    });
   }
 
   place(kind, x, lane) {
+    if (ENEMY[kind]) return this.enemy(kind, x, lane);
     if (kind === 'metal') return this.crate('metal', x, lane);
     if (kind === 'tnt') return this.crate('tnt', x, lane);
     return this.hazard(kind, x, lane);
@@ -233,7 +266,7 @@ export class World {
       const kind = this.hazardKind(diff);
       this.place(kind, hx, l);
       // jump-over fruit arc / trophies above beatable hazards
-      if (kind === 'log' || kind === 'rock' || kind === 'barricade') this.arcAt(hx - 150, 300, 120, kind === 'rock' ? 300 : 250, 5, l);
+      if (kind === 'log' || kind === 'rock' || kind === 'barricade' || kind === 'scuttler' || kind === 'spiky') this.arcAt(hx - 150, 300, 120, kind === 'rock' ? 300 : 250, 5, l);
       else if (kind === 'metal') {
         this.fruit(hx - 20, CONFIG.crates.size + 50, l);
         this.fruit(hx + 30, CONFIG.crates.size + 50, l);
@@ -283,6 +316,42 @@ export class World {
       this.item(relic ? 'relic' : weighted({ green: 40, purple: 40, blue: 20 }), g0 + width / 2, 310, lane);
     }
     return 420 + width + 200;
+  }
+
+  // pit crossed by hopping across stepping-stone islands (full-width gaps between islands)
+  pStones(x, spx, diff, distance) {
+    const sp = clamp((spx / V.pxPerM - 15) / 19, 0, 1);
+    const width = 170 + sp * 110;
+    const island = Math.max(300, spx * 0.5);
+    const n = diff > 0.35 && chance(0.5) ? 3 : 2;
+    const g0 = x + 400;
+    const lane = this.nextSafe(diff);
+    for (let i = 0; i < 3; i++) this.fruit(x + i * 70, 64, lane);
+    for (let k = 0; k < n; k++) {
+      const a = g0 + k * (width + island);
+      this.gap(a, a + width);
+      this.arcAt(a - 70, width + 140, 80, 250, 5, lane);
+      if (k < n - 1) for (let i = 0; i < 2; i++) this.fruit(a + width + island * (0.3 + i * 0.4), 64, lane);
+    }
+    if (distance > 100 && chance(0.4 + 0.3 * diff)) this.item(weighted({ green: 40, purple: 40, blue: 20 }), g0 + width + island / 2, 150, lane);
+    return 400 + n * width + (n - 1) * island + 260;
+  }
+
+  // optional high road: stair-step floating platforms with fruit, gems and crates on top
+  pHighRoad(x, spx, diff, distance) {
+    const lane = pick([0, 1, 2]);
+    const p1 = x + 420;
+    this.platform(p1, lane, 92, 250);
+    const p2 = p1 + 125 + 70 + 190;
+    this.platform(p2, lane, 172, 380);
+    for (let i = 0; i < 3; i++) this.fruit(p1 - 80 + i * 80, 92 + 56, lane);
+    for (let i = 0; i < 4; i++) this.fruit(p2 - 130 + i * 86, 172 + 56, lane);
+    if (chance(0.5)) this.crate(weighted({ fruit: 3, mystery: 2 }), p2 + 60, lane, 172);
+    if (distance > 100 && chance(0.35 + 0.25 * diff)) this.item(weighted({ green: 45, purple: 35, blue: 20 }), p2, 172 + 130, lane);
+    // keep the ground lanes interesting too
+    const o = this.nextSafe(diff);
+    for (let i = 0; i < 6; i++) this.fruit(x + 300 + i * 120, 64, o);
+    return 420 + 125 + 70 + 380 + 190;
   }
 
   pBranch(x, spx, diff, distance) {
@@ -351,6 +420,19 @@ export class World {
         if (c.squash <= 0) this.crates.release(c);
       }
     }
+    for (const e of this.enemies.active) {
+      e.t += dt;
+      if (e.kind === 'scuttler') {
+        const ph = (e.t * e.speed) / e.range;
+        e.x = e.ox + Math.sin(ph) * e.range;
+        e.dir = Math.cos(ph) >= 0 ? 1 : -1;
+      } else if (e.kind === 'bat') {
+        const ph = (e.t * e.speed) / e.range;
+        e.x = e.ox + Math.sin(ph) * e.range;
+        e.y0 = e.by + Math.sin(e.t * 3.2) * 24;
+        e.dir = Math.cos(ph) >= 0 ? 1 : -1;
+      }
+    }
     const pcx = playerX, pcy = player.y + player.h / 2;
     const gap = V.laneGap;
     for (let i = this.items.active.length - 1; i >= 0; i--) {
@@ -379,7 +461,7 @@ export class World {
       }
     }
     const behind = camX - 260;
-    for (const pool of [this.hazards, this.crates, this.items]) {
+    for (const pool of [this.hazards, this.crates, this.items, this.enemies, this.platforms]) {
       for (let i = pool.active.length - 1; i >= 0; i--) {
         const e = pool.active[i];
         if (e.x + 120 < behind) pool.release(e);

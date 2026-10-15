@@ -637,8 +637,11 @@ export class Renderer {
     this.drawGround(ctx, camX, world.gaps.active, this.biome, fade < 1 ? fade : 1);
 
     // depth-sorted entities (back lane first, front lane last)
+    this.dt = dt;
     const list = this.list;
     list.length = 0;
+    for (const pl of world.platforms.active) list.push({ y: laneY(pl.lane) - 1, t: 5, e: pl });
+    for (const e of world.enemies.active) list.push({ y: laneY(e.lane), t: 4, e });
     for (const h of world.hazards.active) list.push({ y: laneY(h.lane), t: 0, e: h });
     for (const c of world.crates.active) list.push({ y: laneY(c.lane), t: 1, e: c });
     for (const it of world.items.active) list.push({ y: laneY(it.lf), t: 2, e: it });
@@ -649,7 +652,18 @@ export class Renderer {
       if (o.t === 0) this.drawHazard(ctx, o.e, camX, time);
       else if (o.t === 1) this.drawCrateEnt(ctx, o.e, camX, time);
       else if (o.t === 2) this.drawItem(ctx, o.e, camX, time);
+      else if (o.t === 4) this.drawEnemy(ctx, o.e, camX, time);
+      else if (o.t === 5) this.drawPlatformEnt(ctx, o.e, camX, time);
       else this.drawHero(ctx, game, feet, time);
+    }
+    for (const m of game.maskFx) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, m.life * 2);
+      ctx.translate(this.snap(m.x - camX), this.snap(laneY(m.lane) - m.y));
+      ctx.rotate(m.rot);
+      ctx.scale(0.7, 0.7);
+      S.drawMask(ctx, time, false);
+      ctx.restore();
     }
     particles.draw(ctx, camX, this);
 
@@ -695,13 +709,109 @@ export class Renderer {
 
   drawHero(ctx, game, feet, time) {
     const p = game.player;
+    const pu = game.powerups;
+    const hx = this.snap(game.heroX());
+    const hy = feet - p.y;
+    // mask power: golden aura behind the hero
+    if (pu.invincible && game.state !== 'menu') {
+      const warn = pu.timers.mask < 2 && Math.sin(time * 20) > 0;
+      if (!warn) {
+        ctx.save();
+        ctx.translate(hx, hy - (p.sliding ? 28 : 66));
+        ctx.rotate(time * 1.5);
+        ctx.fillStyle = 'rgba(255,214,60,0.35)';
+        for (let i = 0; i < 10; i++) {
+          ctx.rotate(Math.PI / 5);
+          ctx.beginPath();
+          ctx.moveTo(-10, -92);
+          ctx.lineTo(0, -128 - Math.sin(time * 8 + i) * 8);
+          ctx.lineTo(10, -92);
+          ctx.fill();
+        }
+        ctx.restore();
+        ctx.save();
+        ctx.translate(hx, hy - (p.sliding ? 28 : 66));
+        ctx.beginPath();
+        ctx.arc(0, 0, 88 + Math.sin(time * 6) * 4, 0, 7);
+        ctx.fillStyle = 'rgba(255,230,120,0.22)';
+        ctx.fill();
+        ctx.lineWidth = 5;
+        ctx.strokeStyle = 'rgba(255,200,40,0.85)';
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
     ctx.save();
-    ctx.translate(this.snap(game.heroX()), this.snap(feet));
+    ctx.translate(hx, this.snap(feet));
     const hs = game.heroScale();
     ctx.scale(hs, hs);
     p.draw(ctx, 0, 0);
     ctx.restore();
+    // spin attack slashes
+    if (p.spinTimer > 0) {
+      ctx.save();
+      ctx.translate(hx, hy - 62);
+      ctx.rotate(p.spinAngle * 0.5);
+      for (let i = 0; i < 2; i++) {
+        ctx.rotate(Math.PI);
+        ctx.beginPath();
+        ctx.arc(0, 0, 96, 0.1, 1.9);
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 16;
+        ctx.strokeStyle = OUT;
+        ctx.stroke();
+        ctx.lineWidth = 9;
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // spirit mask companion(s)
+    const n = pu.invincible ? 1 : Math.min(2, pu.masks);
+    this.mp = this.mp || [];
+    for (let i = 0; i < 2; i++) {
+      if (i >= n) { this.mp[i] = null; continue; }
+      const tx = hx - 82 - i * 66 + (p.sliding ? 20 : 0);
+      const ty = hy - (p.sliding ? 70 : 150) + Math.sin(time * 3 + i * 1.8) * 9 + i * 28;
+      const m = this.mp[i] || (this.mp[i] = { x: tx, y: ty });
+      const k = 1 - Math.exp(-11 * (this.dt || 0.016));
+      m.x += (tx - m.x) * k;
+      m.y += (ty - m.y) * k;
+      ctx.save();
+      ctx.translate(this.snap(m.x), this.snap(m.y));
+      const sc = pu.invincible ? 0.92 : 0.64 - i * 0.06;
+      ctx.scale(sc, sc);
+      S.drawMask(ctx, time + i, pu.invincible, (m.x - tx) * 0.004);
+      ctx.restore();
+    }
     this.drawPowerFx(ctx, game, time, feet);
+  }
+
+  drawEnemy(ctx, e, camX, time) {
+    const sx = e.x - camX;
+    if (sx < -200 || sx > this.viewW + 200) return;
+    const base = laneY(e.lane);
+    ctx.save();
+    ctx.translate(this.snap(sx), this.snap(base));
+    const lift = Math.max(0.4, 1 - e.y0 / 320);
+    this.shadow(ctx, e.w * 0.5 * lift, 2, 0.25);
+    ctx.translate(0, -e.y0);
+    if (e.kind === 'scuttler') S.drawScuttler(ctx, e.w, e.h, time + e.t, e.dir);
+    else if (e.kind === 'spiky') S.drawSpiky(ctx, e.w, time + e.t);
+    else S.drawBat(ctx, e.w, time + e.t);
+    ctx.restore();
+  }
+
+  drawPlatformEnt(ctx, pl, camX, time) {
+    const sx = pl.x - camX;
+    if (sx < -pl.w || sx > this.viewW + pl.w) return;
+    const base = laneY(pl.lane);
+    ctx.save();
+    ctx.translate(this.snap(sx), this.snap(base));
+    this.shadow(ctx, pl.w * 0.42, 2, 0.2);
+    ctx.translate(0, -pl.y0);
+    S.drawPlatform(ctx, this.biome, pl.w, pl.h, time);
+    ctx.restore();
   }
 
   drawWarn(ctx, time, b) {
@@ -829,23 +939,6 @@ export class Renderer {
     const x = game.heroX();
     const y = feet - p.y - (p.sliding ? 28 : 62);
     const warn = (v) => v < 2 && Math.sin(time * 20) > 0;
-    if (t.shield > 0 && !warn(t.shield)) {
-      ctx.save();
-      ctx.translate(x, y);
-      const r = 96 + Math.sin(time * 5) * 3;
-      ctx.beginPath();
-      ctx.arc(0, 0, r, 0, 7);
-      ctx.fillStyle = 'rgba(90,200,255,0.22)';
-      ctx.fill();
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = 'rgba(40,140,230,0.9)';
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.ellipse(-r * 0.4, -r * 0.45, r * 0.18, r * 0.3, 0.6, 0, 7);
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.fill();
-      ctx.restore();
-    }
     if (t.magnet > 0 && !warn(t.magnet)) {
       ctx.save();
       ctx.translate(x, y);

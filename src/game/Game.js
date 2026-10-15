@@ -51,6 +51,7 @@ export class Game {
       },
       onSlide: () => this.audio.slide(),
       onLane: () => this.audio.lane(),
+      onSpin: () => this.audio.spin(),
     };
 
     const hudHandlers = {
@@ -104,6 +105,7 @@ export class Game {
     this.ambientT = 0;
     this.dustT = 0;
     this.shake = 0;
+    this.maskFx = [];
     this.applyQuality();
     this.toMenu();
     this.clock = performance.now();
@@ -136,6 +138,7 @@ export class Game {
     this.particles.clear();
     this.player.reset();
     this.powerups.reset();
+    this.maskFx.length = 0;
     this.camX = 0;
     this.world.reset();
     this.world.viewW = this.renderer.viewW;
@@ -225,6 +228,8 @@ export class Game {
       case 'playing':
         if (a === 'jump') p.jump();
         else if (a === 'slide') p.slide();
+        else if (a === 'spin') p.spinAttack();
+        else if (a === 'jumpRelease') p.jumpRelease();
         else if (a === 'laneUp') p.moveLane(-1);
         else if (a === 'laneDown') p.moveLane(1);
         else if (a === 'pause') this.pause();
@@ -352,6 +357,7 @@ export class Game {
     this.powerups.update(dt, (k) => {
       this.audio.powerdown();
       this.hud.toast(`${POWERUPS[k].label} ENDED`, '#ffffff', true);
+      if (k === 'mask') this.player.invuln = Math.max(this.player.invuln, 0.8);
     });
 
     if (!dying) this.collision.update(p, this.callbacks());
@@ -372,11 +378,20 @@ export class Game {
       this.particles.emit(this.playerWorldX() - 20, 10, 1, { colors: [0xe8c898, 0xffffff], speed: 140, angle: Math.PI, arc: 1, life: 0.4, size: 12, gravity: 120 });
     }
 
+    for (let i = this.maskFx.length - 1; i >= 0; i--) {
+      const m = this.maskFx[i];
+      m.life -= dt;
+      m.vy -= 2400 * dt;
+      m.x += m.vx * dt - this.speedPx * dt * 0.3;
+      m.y += m.vy * dt;
+      m.rot += dt * 14;
+      if (m.life <= 0) this.maskFx.splice(i, 1);
+    }
     this.particles.update(dt);
     this.hud.update(dt, {
       score: this.score.score, best: this.score.best, distance: this.score.distance, fruit: this.score.fruit,
       gems: this.score.gems, gemTypes: this.score.gemTypes, level: this.score.level, speed,
-      speedRatio: Math.max(0, Math.min(1, (speed - S.start) / (S.max - S.start))), lives: this.lives, timers: this.powerups.timers,
+      speedRatio: Math.max(0, Math.min(1, (speed - S.start) / (S.max - S.start))), lives: this.lives, timers: this.powerups.timers, masks: this.powerups.masks,
     });
   }
 
@@ -390,6 +405,8 @@ export class Game {
       explode: (c) => this.explodeCrate(c),
       collect: (it) => this.collect(it),
       powerup: (it) => this.pickPowerup(it),
+      enemyKill: (e, how) => this.killEnemy(e, how),
+      enemyHit: (e) => this.damage(e.kind),
       nearMiss: (e) => {
         this.score.add(CONFIG.scoring.nearMiss);
         this.score.nearMisses++;
@@ -414,14 +431,17 @@ export class Game {
     const px = this.playerWorldX();
     const cy = p.y + p.h / 2;
     this.particles.lane = p.laneF;
-    if (this.powerups.consumeShield()) {
+    const res = this.powerups.consumeMask();
+    if (res === 'immune') return; // mask power: nothing can hurt you
+    if (res === 'absorbed') {
       p.invuln = 1.3;
-      this.audio.shieldPop();
-      this.particles.ring(px, cy, 0x5ac8ff, 70, 0.5);
-      this.particles.emit(px, cy, 18, { colors: [0x5ac8ff, 0xffffff], speed: 420, life: 0.6, size: 12 });
+      this.audio.maskBreak();
+      this.particles.ring(px, cy, 0xffd23a, 70, 0.5);
+      this.particles.stars(px, cy + 30, 12, [0xffd23a, 0xff8a1e, 0xffffff], 460);
+      this.maskFx.push({ x: px - 70, y: cy + 40, vx: -260, vy: 700, rot: 0, life: 1.1, lane: p.laneF });
       this.shake = 8;
       this.hud.flash('white');
-      this.hud.toast('SHIELD BROKEN!', '#3ab8ff');
+      this.hud.toast('MASK LOST!', '#ffd23a', true);
       return;
     }
     this.lives--;
@@ -488,7 +508,7 @@ export class Game {
       this.world.pop(c.x, y, 8, c.lane);
       this.hud.toast('FRUIT FRENZY!', '#ff8a1e', true);
     } else if (r < 0.68) {
-      const type = ['magnet', 'shield', 'multiplier'][(Math.random() * 3) | 0];
+      const type = ['magnet', 'mask', 'multiplier'][(Math.random() * 3) | 0];
       this.world.popItem(type, c.x, y, c.lane);
       this.hud.toast(`${POWERUPS[type].label}!`, POWERUPS[type].css, true);
     } else {
@@ -558,15 +578,39 @@ export class Game {
     this.shake = Math.max(this.shake, 3);
   }
 
+  killEnemy(e, how) {
+    if (!e.active) return;
+    const x = e.x, y = e.y0 + e.h / 2;
+    this.world.enemies.release(e);
+    const P = this.particles;
+    P.lane = e.lane;
+    P.stars(x, y, 8, [0xffd23a, 0xffffff, 0xff8a1e], 420);
+    P.emit(x, y, 8, { colors: [0xe8c898, 0xffffff], speed: 260, life: 0.5, size: 14, gravity: 200 });
+    P.pop(x, y + 70, how === 'stomp' ? 'BOP!' : how === 'spin' ? 'WHAM!' : 'POW!', how === 'stomp' ? '#7cff5a' : '#ffd23a');
+    this.score.add(CONFIG.scoring.enemy);
+    this.score.enemies = (this.score.enemies || 0) + 1;
+    this.shake = Math.max(this.shake, 5);
+    if (how === 'stomp') {
+      this.audio.stomp();
+      this.player.stomp();
+    } else this.audio.crate();
+  }
+
   pickPowerup(it) {
     const type = it.kind;
     this.world.items.release(it);
-    this.powerups.activate(type);
-    this.audio.powerup();
+    const r = this.powerups.activate(type);
     this.particles.lane = it.lf;
     const c = POWERUPS[type];
     this.particles.ring(it.x, it.y, c.color, 40, 0.55);
     this.particles.stars(it.x, it.y, 10, [c.color, 0xffffff], 420);
-    this.hud.toast(`${c.label}!`, c.css);
+    if (type === 'mask') {
+      this.audio.maskGet(r === 'power');
+      if (r === 'power') this.hud.toast('MASK POWER! INVINCIBLE', '#ffd23a');
+      else this.hud.toast(`MASK ${this.powerups.masks}/${CONFIG.powerups.mask.needed}`, '#ffd23a', true);
+    } else {
+      this.audio.powerup();
+      this.hud.toast(`${c.label}!`, c.css);
+    }
   }
 }

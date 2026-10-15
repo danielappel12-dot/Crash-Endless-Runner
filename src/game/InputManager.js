@@ -8,6 +8,7 @@ const KEYMAP = {
   ArrowDown: 'laneDown', KeyS: 'laneDown',
   Space: 'jump', ArrowRight: 'jump', KeyD: 'jump',
   ArrowLeft: 'slide', KeyA: 'slide', ShiftLeft: 'slide', ShiftRight: 'slide',
+  KeyJ: 'spin', KeyE: 'spin', KeyX: 'spin', ControlLeft: 'spin', ControlRight: 'spin',
   Escape: 'pause', KeyP: 'pause',
   KeyR: 'restart',
   Enter: 'confirm',
@@ -20,7 +21,7 @@ export class InputManager {
     window.addEventListener('keydown', (e) => {
       const a = KEYMAP[e.code];
       if (!a) return;
-      if (['jump', 'slide', 'laneUp', 'laneDown'].includes(a) || e.code === 'Space') e.preventDefault();
+      if (['jump', 'slide', 'laneUp', 'laneDown', 'spin'].includes(a) || e.code === 'Space') e.preventDefault();
       if (e.repeat && a !== 'slide') return;
       this.held.add(a);
       this.onAction(a, 'key');
@@ -28,6 +29,7 @@ export class InputManager {
     window.addEventListener('keyup', (e) => {
       const a = KEYMAP[e.code];
       if (a) this.held.delete(a);
+      if (a === 'jump') this.onAction('jumpRelease', 'key');
     });
 
     // touch / mouse on the canvas: swipe up/down = change lane, tap right half = jump,
@@ -52,6 +54,7 @@ export class InputManager {
       this.onAction(dy < 0 ? 'laneUp' : 'laneDown', 'touch');
     });
     target.addEventListener('pointerup', (e) => {
+      if (e.pointerType === 'mouse') this.onAction('jumpRelease', 'mouse');
       if (e.pointerId !== sid) return;
       sid = null;
       if (!fired && Math.hypot(e.clientX - sx, e.clientY - sy) < threshold()) {

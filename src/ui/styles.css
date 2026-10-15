@@ -186,3 +186,10 @@ select.toggle { appearance: none; text-align: center; }
   .touch { height: 100px; } .tbtn { width: 58px; height: 58px; font-size: 18px; } .tbtn.wide { width: 100px; font-size: 11px; }
   .hud-center { display: none; }
 }
+
+.masks { display: flex; gap: 6px; margin-top: 8px; }
+.maskslot { width: 24px; height: 24px; opacity: .22; filter: grayscale(1); }
+.maskslot.on { opacity: 1; filter: none; }
+.maskslot img.px { width: 24px; height: 24px; }
+.tbtn.wide { width: 104px; }
+@media (max-width: 760px) { .maskslot, .maskslot img.px { width: 18px; height: 18px; } .masks { margin-top: 5px; } .tbtn.wide { width: 84px; font-size: 11px; } }

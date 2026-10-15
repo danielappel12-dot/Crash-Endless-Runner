@@ -15,6 +15,11 @@ export const CONFIG = {
     halfWidth: 24, // hit box
     standHeight: 118,
     slideHeight: 54,
+    jumpCut: 0.7, // releasing jump early caps upward speed at this fraction
+    spinDuration: 0.42,
+    spinCooldown: 0.6,
+    spinReach: 125,
+    stompBounce: 950,
     lives: 3,
     hitInvuln: 1.8,
     hitStagger: 0.6,
@@ -28,11 +33,12 @@ export const CONFIG = {
   scoring: {
     perMetre: 1, fruit: 10, crate: 50, mystery: 100, nearMiss: 25,
     gem: { green: 500, purple: 1000, blue: 2000, relic: 5000 },
+    enemy: 100,
   },
 
   powerups: {
     magnet: { duration: 9, radius: 330 },
-    shield: { duration: 14 },
+    mask: { duration: 12, needed: 3 }, // 3 masks collected = invincibility for `duration` seconds
     multiplier: { duration: 10, factor: 2 },
   },
 

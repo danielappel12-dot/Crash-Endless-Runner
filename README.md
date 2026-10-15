@@ -1,10 +1,11 @@
 # 🍊 WUMPA RUSH
 **Run wild. Smash everything.**
 
-A complete **pixel-art 2D endless runner with three dodge lanes**, in the spirit of 1990s platformers, built with **Vite + HTML Canvas 2D** (plain JavaScript ES modules, no runtime dependencies).
+A complete **pixel-art 2D platform-runner with three dodge lanes**, in the spirit of 1990s platformers, built with **Vite + HTML Canvas 2D** (plain JavaScript ES modules, no runtime dependencies).
 Everything is original and generated in code: the hero, the jungle, the crates, the sound effects and the music. There are no downloaded assets, no API keys and no external services (the optional "Press Start 2P" pixel font is loaded from Google Fonts when online; a monospace font is used offline).
 
 * Look: the scene is drawn at a low internal resolution (about 410×230), posterised with ordered dithering and upscaled with hard pixels, so everything has a chunky 32-bit console feel. Thick ink outlines, squash-and-stretch, parallax zones (jungle, ancient ruins, rope bridge over a river canyon, rocky pass), POW/BAM/BOOM bursts.
+* Platforming: spin attack, stompable critters, floating platforms, stepping-stone pits, variable-height jumps and a floating spirit mask that protects you (three masks = golden invincibility).
 * Lanes: the ground is a three-lane band (back / middle / front) like a classic beat-'em-up. Move between lanes to dodge; hazards never block every lane.
 * Hero: *Rukk*, an original orange-brown cartoon marsupial (green fingerless gloves, blue shorts, oversized red sneakers), posed with sine-wave animation: run, jump (tucked legs), slide, hit, victory dance, idle.
 * Collectible: **Wumpa Fruit** (original artwork), plus green / purple / blue gems and the legendary golden relic.
@@ -38,8 +39,9 @@ npm run build && npm run preview
 | Action | Keyboard / mouse | Touch |
 |---|---|---|
 | Move to the lane behind / in front | `W` `↑` / `S` `↓` | Swipe up / down, or ▲ ▼ buttons |
-| Jump | `Space`, `D` or `→` (or click) | Tap the right side, or JUMP |
+| Jump (hold = higher, tap = hop) | `Space`, `D` or `→` (or click) | Tap the right side, or JUMP |
 | Slide | `A`, `←` or `Shift` (hold to keep sliding; in mid-air: dive) | Tap the left side, or SLIDE |
+| Spin attack | `J`, `E`, `X` or `Ctrl` | SPIN button |
 | Pause | `Esc` | ❚❚ button |
 | Restart (after game over) | `R` | Restart button |
 
@@ -47,9 +49,12 @@ npm run build && npm run preview
 
 * Rukk runs on his own across three lanes. Collect **Wumpa Fruit**, smash crates, hunt gems, survive. Items only count when you are in their lane. You have **3 hearts**; a hit gives a short grace period and a brief slow‑down.
 * **Crates:** fruit crate (bursts into fruit) · bouncy crate (jump *onto* it to launch skyward) · mystery `?` crate (random reward: fruit, power‑up or gem) · **TNT** (a fuse lights as you approach and it blows as you arrive: leave its lane or jump the blast!) · iron crate (unbreakable: change lane, jump it or hop on top).
-* **Hazards:** fallen logs, big rocks and spiked barricades (change lane or jump) · low branches (slide or change lane) · ravine gaps (jump; they cut across every lane) · **rolling boulders** (a red ! marks their lane) · **TNT** blasts only hit your own lane. At least one lane is always free, and hazards are spaced so there is room to jump, land and react.
+* **Hazards:** fallen logs, big rocks and spiked barricades (change lane, jump or spin) · low branches (slide or change lane) · ravine gaps (jump; they cut across every lane) · **rolling boulders** (a red ! marks their lane) · **TNT** blasts only hit your own lane. At least one lane is always free, and hazards are spaced so there is room to jump, land and react.
 * **Gems:** green 500 · purple 1000 · blue 2000 · golden relic 5000. Many are placed in risky spots: high over gaps and obstacles, or under low branches.
-* **Power‑ups:** 🧲 Magnet (pulls fruit) · 🛡 Shield (absorbs one hit) · ✦ Fruit ×2.
+* **Spirit masks:** a carved tribal mask floats beside the hero and absorbs one hit (up to two at a time). Collect **three** for 12 seconds of golden invincibility: enemies are smashed on touch and nothing hurts you (pits still do!). Masks also come out of mystery crates.
+* **Other power‑ups:** 🧲 Magnet (pulls fruit) · ✦ Fruit ×2.
+* **Critters:** beetles and bats can be stomped from above or spun; spiky urchins can only be spun or dodged. Bats fly at head height, so slide under or dodge them.
+* **Platforms:** floating stair-step platforms carry bonus fruit, crates and gems. Some pits are crossed by hopping between stepping-stone islands.
 * Speed ramps from 15 → 34 m/s over ~2.6 km, obstacles get denser and special zones (ancient ruins, rope bridge, rocky pass) appear more often.
 * **Close calls** (jumping a hazard by a hair) earn bonus points.
 
@@ -66,17 +71,17 @@ src/
   config/settings.js  ALL gameplay constants (speed, jump, hitboxes, power-up durations…) + localStorage store
   game/
     Game.js           orchestrator: state machine, game loop, collision callbacks, music cues
-    Player.js         hero physics (lanes, jump, slide) + procedurally posed cartoon drawing
-    World.js          pooled hazards / crates / items / ravine gaps + lane-aware safe layout generator
+    Player.js         hero physics (lanes, variable jump, slide, spin attack) + procedurally posed cartoon drawing
+    World.js          pooled hazards / crates / items / enemies / platforms / ravine gaps + lane-aware safe layout generator
     Renderer.js       low-res pixel pipeline (parallax zones, depth-sorted lanes, dither + upscale)
-    Sprites.js        sprites: fruit, gems, relic, crates, logs, rocks, barricades, branches, boulders, power-ups
+    Sprites.js        sprites: fruit, gems, relic, spirit mask, crates, enemies, platforms, hazards, power-ups
     CollisionSystem.js  AABB collisions, platforms (logs, iron crates), gaps, near-miss
     ParticleSystem.js pooled dots, stars, debris, rings and "POW!" text
     ScoreManager.js   score, stats, best-score persistence
     AudioManager.js   Web Audio synth sound effects
     MusicManager.js   procedural chiptune sequencer: one tune per zone + menu theme
     InputManager.js   keyboard, mouse and touch input (swipes, taps)
-    PowerUp.js        power-up definitions and timers
+    PowerUp.js        power-up timers and the spirit-mask stack
     Pool.js           tiny object pool
   ui/                 HUD.js, Menu.js, GameOver.js, icons.js, styles.css
 ```

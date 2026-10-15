@@ -46,6 +46,10 @@ export class Player {
     this.squash = 0; // +stretch / -squash, decays
     this.spin = 0;
     this.fallGap = null;
+    this.jumping = false;
+    this.spinTimer = 0;
+    this.spinCd = 0;
+    this.spinAngle = 0;
     this.h = P.standHeight;
     this.pose = { ...NEUTRAL };
   }
@@ -74,7 +78,33 @@ export class Player {
     this.slideTimer = 0;
     this.jumpBuffer = 0;
     this.squash = 0.28;
+    this.jumping = true;
     this.callbacks.onJump?.();
+  }
+
+  // releasing the jump key early gives a shorter hop
+  jumpRelease() {
+    if (this.jumping && this.vy > P.jumpVelocity * P.jumpCut) this.vy = P.jumpVelocity * P.jumpCut;
+    this.jumping = false;
+  }
+
+  spinAttack() {
+    if (this.mode !== 'run' || this.falling || this.spinCd > 0 || this.spinTimer > 0) return false;
+    this.spinTimer = P.spinDuration;
+    this.spinCd = P.spinCooldown;
+    this.sliding = false;
+    this.slideTimer = 0;
+    if (!this.grounded && this.vy < 0) this.vy = Math.max(this.vy, -120); // little air hover
+    this.callbacks.onSpin?.();
+    return true;
+  }
+
+  // bounce off an enemy's head
+  stomp() {
+    this.vy = P.stompBounce;
+    this.grounded = false;
+    this.jumping = false;
+    this.squash = 0.3;
   }
 
   slide() {
@@ -99,6 +129,7 @@ export class Player {
 
   bounce(v) {
     this.vy = v;
+    this.jumping = false;
     this.grounded = false;
     this.sliding = false;
     this.slideTimer = 0;
@@ -121,6 +152,11 @@ export class Player {
     this.groundY = groundH;
     if (this.hitTimer > 0) this.hitTimer -= dt;
     if (this.invuln > 0) this.invuln -= dt;
+    if (this.spinCd > 0) this.spinCd -= dt;
+    if (this.spinTimer > 0) {
+      this.spinTimer -= dt;
+      this.spinAngle += dt * ((Math.PI * 4) / P.spinDuration);
+    } else this.spinAngle = 0;
     if (this.jumpBuffer > 0) this.jumpBuffer -= dt;
     if (this.pendingSlide > 0) this.pendingSlide -= dt;
     this.squash = damp(this.squash, 0, 9, dt);
@@ -146,6 +182,7 @@ export class Player {
           this.vy = 0;
           this.grounded = true;
           this.spin = 0;
+          this.jumping = false;
           if (impact > 500) {
             this.squash = -clamp(impact / 3200, 0.15, 0.35);
             this.callbacks.onLand?.(impact);
@@ -164,6 +201,7 @@ export class Player {
   }
 
   animState() {
+    if (this.spinTimer > 0 && this.mode === 'run') return 'spin';
     if (this.mode === 'dance') return 'dance';
     if (this.mode === 'idle') return 'idle';
     if (this.mode === 'dead' || this.hitTimer > 0) return 'hit';
@@ -202,6 +240,10 @@ export class Player {
         T.rot = this.spin;
         if (this.spin > Math.PI * 2) this.spin = 0;
       }
+    } else if (st === 'spin') {
+      T.armF = 1.6; T.armB = -1.6; T.elbowF = 0.1; T.elbowB = 0.1;
+      T.thighF = 0.5; T.thighB = -0.5; T.kneeF = -0.5; T.kneeB = -0.5;
+      T.lean = 0.1; T.ear = -1.2; T.tail = 1.0; T.head = 0; rate = 40;
     } else if (st === 'slide') {
       T.rot = -1.25; T.hipDrop = 10;
       T.thighF = 0.2; T.thighB = 0.45; T.kneeF = -0.1; T.kneeB = -0.2;
@@ -344,6 +386,7 @@ export class Player {
     ctx.scale(1 - sq * 0.55, 1 + sq);
     let scx = 1;
     if (this.mode === 'dance') scx = Math.cos(this.time * 3);
+    if (this.spinTimer > 0) scx = Math.cos(this.spinAngle);
     ctx.scale(scx, 1);
 
     ctx.translate(0, -62 + p.hipDrop - p.bob + (this.sliding ? 0 : 0));
